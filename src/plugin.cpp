@@ -78,6 +78,7 @@ std::optional<std::filesystem::path> Plugin::LoadFile(std::filesystem::path path
 }
 
 bool Plugin::ChangeDir(std::filesystem::path dir) {
+  dir = sanitize(std::move(dir));
   auto maybe_path = LoadFile(std::move(dir));
   if (!maybe_path)
     return false;
@@ -211,7 +212,16 @@ bool Plugin::CreateDir(std::filesystem::path path) {
 }
 
 int Plugin::ContextVerb(LPVFSCONTEXTVERBDATAW lpVerbData) {
-  /* Not implemented */
+  std::filesystem::path full_path = sanitize(lpVerbData->lpszPath);
+  if (!ChangeDir(full_path.parent_path()))
+    return VFSCVRES_FAIL;
+
+  auto item = mCurrentDir->children_.find(full_path.filename().string());
+
+  if (item == mCurrentDir->children_.end())
+    return VFSCVRES_FAIL;
+  if (item->second.file_)
+    return VFSCVRES_EXTRACT;
   return VFSCVRES_DEFAULT;
 }
 
