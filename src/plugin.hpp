@@ -27,7 +27,10 @@ class Guard {
 
 class PluginFindData {};
 
-class PluginFile {};
+struct PluginFile {
+  LzxEntry* file_{};
+  size_t offset_{};
+};
 
 class Plugin {
  private:
@@ -67,11 +70,12 @@ class Plugin {
   std::optional<std::filesystem::path> LoadFile(std::filesystem::path pAfPath);
 
   bool ReadDirectory(LPVFSREADDIRDATAW lpRDD);
+
   bool ReadFile(PluginFile* pFile, std::span<uint8_t> buffer, LPDWORD readSize);
   bool WriteFile(PluginFile* pFile, std::span<uint8_t> buffer, LPDWORD writeSize);
-
   PluginFile* OpenFile(std::filesystem::path path, bool for_writing);
   void CloseFile(PluginFile* pFile);
+
   bool MoveFile(std::filesystem::path old_name, std::filesystem::path new_name);
   bool CreateDir(std::filesystem::path path);
 

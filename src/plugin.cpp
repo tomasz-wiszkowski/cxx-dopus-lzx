@@ -182,9 +182,41 @@ bool Plugin::ReadDirectory(LPVFSREADDIRDATAW lpRDD) {
   return true;
 }
 
-bool Plugin::ReadFile(PluginFile* pFile, std::span<uint8_t> buffer, LPDWORD pReadSize) {
-  /* Not implemented */
-  return {};
+bool Plugin::ReadFile(PluginFile* file, std::span<uint8_t> buffer, LPDWORD read_size) {
+  SetError(0);
+  *read_size = 0;
+
+  if (file->offset_ >= file->file_->unpack_size())
+    return false;
+
+  // Locate segment to read from
+  size_t read_offset{file->offset_};
+  size_t segment_size{};
+
+  auto segment_iter = file->file_->segments().begin();
+  for (; segment_iter != file->file_->segments().end(); ++segment_iter) {
+    segment_size = segment_iter->decompressed_length();
+    // Locate first segment that has any relevant data.
+    if (read_offset < segment_size)
+      break;
+
+    read_offset -= segment_size;
+  }
+
+  if (segment_iter == file->file_->segments().end())
+    return false;
+
+  std::span<const uint8_t> data = segment_iter->data();
+  if (data.empty()) {
+    SetError(ERROR_READ_FAULT);
+    return false;
+  }
+
+  *read_size = min(segment_size - read_offset, buffer.size());
+  ::memcpy(buffer.data(), &data[read_offset], *read_size);
+  file->offset_ += *read_size;
+
+  return true;
 }
 
 bool Plugin::WriteFile(PluginFile* pFile, std::span<uint8_t> buffer, LPDWORD pWriteSize) {
@@ -193,12 +225,26 @@ bool Plugin::WriteFile(PluginFile* pFile, std::span<uint8_t> buffer, LPDWORD pWr
 }
 
 PluginFile* Plugin::OpenFile(std::filesystem::path path, bool for_writing) {
-  /* Not implemented */
-  return {};
+  path = sanitize(std::move(path));
+  if (!ChangeDir(path.parent_path()))
+    return {};
+
+  if (for_writing)
+    return {};
+
+  auto iter = mCurrentDir->children_.find(path.filename().string());
+  if (iter == mCurrentDir->children_.end())
+    return {};
+  if (!iter->second.file_)
+    return {};
+
+  auto result = new PluginFile();
+  result->file_ = iter->second.file_;
+  return result;
 }
 
-void Plugin::CloseFile(PluginFile* pFile) {
-  /* Not implemented */
+void Plugin::CloseFile(PluginFile* file) {
+  delete file;
 }
 
 bool Plugin::MoveFile(std::filesystem::path old_name, std::filesystem::path new_name) {
@@ -324,6 +370,7 @@ bool Plugin::PropGet(vfsProperty propId, LPVOID lpPropData, LPVOID lpData1, LPVO
   switch (propId) {
     case VFSPROP_CANSHOWSUBFOLDERS:
     case VFSPROP_ISEXTRACTABLE:
+    case VFSPROP_SHOWTHUMBNAILS:
       *reinterpret_cast<LPBOOL>(lpPropData) = true;
       break;
 
@@ -331,7 +378,6 @@ bool Plugin::PropGet(vfsProperty propId, LPVOID lpPropData, LPVOID lpData1, LPVO
     case VFSPROP_CANDELETESECURE:
     case VFSPROP_CANDELETETOTRASH:
     case VFSPROP_SHOWFILEINFO:
-    case VFSPROP_SHOWTHUMBNAILS:
     case VFSPROP_SUPPORTFILEHASH:
     case VFSPROP_SUPPORTPATHCOMPLETION:
     case VFSPROP_USEFULLRENAME:
@@ -370,10 +416,9 @@ bool Plugin::PropGet(vfsProperty propId, LPVOID lpPropData, LPVOID lpData1, LPVO
             //| VFSFUNCAVAIL_SELECTALL
             //| VFSFUNCAVAIL_SELECTNONE
             //| VFSFUNCAVAIL_SELECTINVERT
-            | VFSFUNCAVAIL_VIEWLARGEICONS |
-            VFSFUNCAVAIL_VIEWSMALLICONS
-            // | VFSFUNCAVAIL_VIEWLIST
-            // | VFSFUNCAVAIL_VIEWDETAILS | VFSFUNCAVAIL_VIEWTHUMBNAIL
+            | VFSFUNCAVAIL_VIEWLARGEICONS | VFSFUNCAVAIL_VIEWSMALLICONS | VFSFUNCAVAIL_VIEWLIST |
+            VFSFUNCAVAIL_VIEWDETAILS |
+            VFSFUNCAVAIL_VIEWTHUMBNAIL
             // | VFSFUNCAVAIL_CLIPCOPY
             | VFSFUNCAVAIL_CLIPCUT | VFSFUNCAVAIL_CLIPPASTE | VFSFUNCAVAIL_CLIPPASTESHORTCUT |
             VFSFUNCAVAIL_UNDO
