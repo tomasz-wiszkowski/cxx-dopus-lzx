@@ -13,18 +13,20 @@
 // unlzx
 #include "error.hh"
 
+DOpusPluginHelperFunction DOpus;
+
 void Plugin::ReconstructDirStructure() {
-  mRoot = DirEnt();
-  mCurrentDir = &mRoot;
+  mRoot = std::make_shared<DirEnt>();
+  mCurrentDir = mRoot.get();
 
   if (!mArchive)
     return;
 
-  mFlatMap = mArchive->list_archive();
-  for (auto& [name, entry] : mFlatMap) {
+  mFlatMap = std::make_shared<std::map<std::string, LzxEntry>>(mArchive->list_archive());
+  for (auto& [name, entry] : *mFlatMap) {
     std::filesystem::path path(name);
 
-    DirEnt* insertion_point = &mRoot;
+    DirEnt* insertion_point = mRoot.get();
     for (auto segment : path) {
       insertion_point = &insertion_point->children_[segment.string()];
     }
@@ -83,7 +85,7 @@ bool Plugin::ChangeDir(std::filesystem::path dir) {
   if (!maybe_path)
     return false;
 
-  mCurrentDir = &mRoot;
+  mCurrentDir = mRoot.get();
   if (*maybe_path == ".")
     return true;
 
@@ -266,9 +268,16 @@ int Plugin::ContextVerb(LPVFSCONTEXTVERBDATAW lpVerbData) {
 
   if (item == mCurrentDir->children_.end())
     return VFSCVRES_FAIL;
-  if (item->second.file_)
+  if (!item->second.file_)
+    return VFSCVRES_DEFAULT;
+
+  if (item->second.extracted_path_.empty())
     return VFSCVRES_EXTRACT;
-  return VFSCVRES_DEFAULT;
+
+  // I honestly have no clue what the expectation here is; this kind of works on the second double click but that ain't
+  // right.
+  StringCchCopyW(lpVerbData->lpszNewPath, MAX_PATH, item->second.extracted_path_.wstring().c_str());
+  return VFSCVRES_CHANGE;
 }
 
 bool Plugin::Delete(LPVOID func_data, std::filesystem::path path, std::set<std::filesystem::path> files, bool pAll) {
@@ -416,9 +425,9 @@ bool Plugin::PropGet(vfsProperty propId, LPVOID lpPropData, LPVOID lpData1, LPVO
             //| VFSFUNCAVAIL_SELECTALL
             //| VFSFUNCAVAIL_SELECTNONE
             //| VFSFUNCAVAIL_SELECTINVERT
-            | VFSFUNCAVAIL_VIEWLARGEICONS | VFSFUNCAVAIL_VIEWSMALLICONS | VFSFUNCAVAIL_VIEWLIST |
-            VFSFUNCAVAIL_VIEWDETAILS |
-            VFSFUNCAVAIL_VIEWTHUMBNAIL
+            // | VFSFUNCAVAIL_VIEWLARGEICONS | VFSFUNCAVAIL_VIEWSMALLICONS | VFSFUNCAVAIL_VIEWLIST |
+            // VFSFUNCAVAIL_VIEWDETAILS |
+            // VFSFUNCAVAIL_VIEWTHUMBNAIL
             // | VFSFUNCAVAIL_CLIPCOPY
             | VFSFUNCAVAIL_CLIPCUT | VFSFUNCAVAIL_CLIPPASTE | VFSFUNCAVAIL_CLIPPASTESHORTCUT |
             VFSFUNCAVAIL_UNDO
@@ -441,8 +450,43 @@ bool Plugin::PropGet(vfsProperty propId, LPVOID lpPropData, LPVOID lpData1, LPVO
 }
 
 bool Plugin::ExtractEntries(LPVOID func_data, dopus::wstring_view_span entry_names, std::filesystem::path target_path) {
-  /* Not implemented */
-  return {};
+  SetError(0);
+  for (auto name : entry_names) {
+    std::filesystem::path source_path = sanitize(name);
+    // Directory not found.
+    if (!ChangeDir(source_path.parent_path()))
+      continue;
+
+    // File not found.
+    auto file_iter = mCurrentDir->children_.find(source_path.filename().string());
+    if (file_iter == mCurrentDir->children_.end())
+      continue;
+
+    // Not a file.
+    if (!file_iter->second.file_)
+      continue;
+
+    auto target_file = target_path / source_path.filename();
+    file_iter->second.extracted_path_ = target_file;
+    std::ofstream target(target_file, std::ios_base::trunc | std::ios_base::out | std::ios_base::binary);
+    for (auto segment : file_iter->second.file_->segments()) {
+      if (target.bad())
+        break;
+
+      auto data = segment.data();
+
+      // Decompress failure.
+      if (segment.status() != Status::Ok)
+        break;
+
+      // Write failure.
+      target.write(reinterpret_cast<const char*>(data.data()), data.size());
+    }
+    target.close();
+    DOpus.AddFunctionFileChange(func_data, /* fIsDest= */ false, OPUSFILECHANGE_CREATE, target_file.c_str());
+  }
+
+  return true;
 }
 
 void Plugin::SetError(int error) {

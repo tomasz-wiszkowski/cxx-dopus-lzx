@@ -19,8 +19,8 @@ add_library(opusPlugin SHARED ${PLUGIN_SOURCES} ${PLUGIN_HEADERS})
 # Include directories
 target_link_libraries(opusPlugin PRIVATE OpusSDK::headers unlzx_lib)
 target_include_directories(opusPlugin PRIVATE ${unlzx_SOURCE_DIR}/src)
-
 target_compile_definitions(opusPlugin PRIVATE ${CPP_DIRECTIVES})
+target_compile_definitions(opusPlugin PRIVATE DOPUS_PLUGIN_HELPER UNICODE)
 
 # Compiler flags
 if(MSVC)

@@ -5,8 +5,6 @@
 
 #pragma once
 
-#define UNICODE
-
 #include <windows.h>
 
 #include <algorithm>

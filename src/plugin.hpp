@@ -35,8 +35,13 @@ struct PluginFile {
 class Plugin {
  private:
   struct DirEnt {
+    DirEnt() = default;
+    DirEnt(const DirEnt&) = delete;
+    DirEnt& operator=(const DirEnt&) = delete;
+
     std::map<std::string, DirEnt> children_;
     LzxEntry* file_{};
+    std::filesystem::path extracted_path_;
   };
 
   using EntryType = void*;
@@ -44,8 +49,8 @@ class Plugin {
   HANDLE mAbortEvent{};
   std::filesystem::path mPath;
   std::shared_ptr<Unlzx> mArchive;
-  std::map<std::string, LzxEntry> mFlatMap;
-  DirEnt mRoot;
+  std::shared_ptr<std::map<std::string, LzxEntry>> mFlatMap;
+  std::shared_ptr<DirEnt> mRoot;
   DirEnt* mCurrentDir;
   int mLastError{};
 
