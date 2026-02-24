@@ -3,15 +3,16 @@
 #include "dopus_wstring_view_span.hh"
 #include "stdafx.h"
 
-static constexpr GUID PluginGUID{0xefd194b7, 0x39bc, 0x47f6, {0x88, 0x8c, 0x96, 0x64, 0x5e, 0x6e, 0x28, 0xfd}};
+static constexpr GUID PluginGUID{0x4bcae8da, 0xd598, 0x4a67, {0xa0, 0x45, 0xbb, 0xbb, 0xb8, 0xaf, 0x58, 0xb0}};
 HINSTANCE g_module_instance{};
 
 extern "C" {
 __declspec(dllexport) bool VFS_IdentifyW(LPVFSPLUGININFOW lpVFSInfo);
 __declspec(dllexport) bool VFS_ReadDirectoryW(Plugin* plugin, LPVFSFUNCDATA lpVFSData, LPVFSREADDIRDATAW lpRDD);
 
-__declspec(dllexport) Plugin* VFS_Create(LPGUID pGuid);
-__declspec(dllexport) void VFS_Destroy(Plugin* plugin);
+__declspec(dllexport) Plugin* WINAPI VFS_Create(LPGUID pGuid);
+__declspec(dllexport) Plugin* WINAPI VFS_Clone(Plugin* plugin);
+__declspec(dllexport) void WINAPI VFS_Destroy(Plugin* plugin);
 
 __declspec(dllexport) BOOL WINAPI VFS_CreateDirectoryW(Plugin* plugin,
                                                        LPVFSFUNCDATA lpFuncData,
@@ -120,12 +121,11 @@ bool VFS_IdentifyW(LPVFSPLUGININFOW lpVFSInfo) {
   lpVFSInfo->dwFlags = VFSF_CANSHOWABOUT;
   lpVFSInfo->dwCapabilities = VFSCAPABILITY_CASESENSITIVE;
 
-  StringCchCopyW(lpVFSInfo->lpszHandleExts, lpVFSInfo->cchHandleExtsMax, L".file1;.file2");
-  StringCchCopyW(lpVFSInfo->lpszName, lpVFSInfo->cchNameMax, L"Opus VFS Plugin Template");
-  StringCchCopyW(lpVFSInfo->lpszDescription, lpVFSInfo->cchDescriptionMax,
-                 L"Example VFS Plugin that doesn't do anything useful");
+  StringCchCopyW(lpVFSInfo->lpszHandleExts, lpVFSInfo->cchHandleExtsMax, L".lzx");
+  StringCchCopyW(lpVFSInfo->lpszName, lpVFSInfo->cchNameMax, L"LZX");
+  StringCchCopyW(lpVFSInfo->lpszDescription, lpVFSInfo->cchDescriptionMax, L"LZX file support (read-only)");
   StringCchCopyW(lpVFSInfo->lpszCopyright, lpVFSInfo->cchCopyrightMax, L"(c) Copyright 2026 Tomasz Wiszkowski");
-  StringCchCopyW(lpVFSInfo->lpszURL, lpVFSInfo->cchURLMax, L"github.com/tomasz-wiszkowski");
+  StringCchCopyW(lpVFSInfo->lpszURL, lpVFSInfo->cchURLMax, L"github.com/tomasz-wiszkowski/cxx-dopus-lzx");
 
   return true;
 }
@@ -136,6 +136,10 @@ bool VFS_USBSafe(LPOPUSUSBSAFEDATA pUSBSafeData) {
 
 Plugin* VFS_Create(LPGUID pGuid) {
   return new Plugin();
+}
+
+Plugin* VFS_Clone(Plugin* plugin) {
+  return new Plugin(*plugin);
 }
 
 void VFS_Destroy(Plugin* plugin) {

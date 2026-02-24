@@ -5,6 +5,7 @@
 #include <set>
 
 #include "dopus_wstring_view_span.hh"
+#include "unlzx.hh"
 
 /// @brief Guard object to set and restore fields.
 template <typename T>
@@ -30,14 +31,29 @@ class PluginFile {};
 
 class Plugin {
  private:
+  struct DirEnt {
+    std::map<std::string, DirEnt> children_;
+    LzxEntry* file_{};
+  };
+
   using EntryType = void*;
 
   HANDLE mAbortEvent{};
   std::filesystem::path mPath;
+  std::shared_ptr<Unlzx> mArchive;
+  std::map<std::string, LzxEntry> mFlatMap;
+  DirEnt mRoot;
+  DirEnt* mCurrentDir;
   int mLastError{};
 
-  LPVFSFILEDATAHEADER GetVFSforEntry(const EntryType* pEntry, HANDLE pHeap);
-  void GetWfdForEntry(const EntryType& entry, LPWIN32_FIND_DATA pData);
+  /// @brief Re-reads the directory structure from the current archive, reconstructing mFlatMap and mRoot.
+  void ReconstructDirStructure();
+
+  /// @brief Navigate to a specific (absolute) path within the archive.
+  bool ChangeDir(std::filesystem::path dir);
+
+  LPVFSFILEDATAHEADER GetVFSforEntry(const std::string& name, const DirEnt& entry, HANDLE heap);
+  void GetWfdForEntry(const std::string& name, const DirEnt& entry, LPWIN32_FIND_DATAW data);
 
   Guard<HANDLE> SetAbortHandle(HANDLE& hAbortEvent);
   bool ShouldAbort() const;

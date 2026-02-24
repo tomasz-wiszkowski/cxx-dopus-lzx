@@ -4,10 +4,96 @@
 #include <strsafe.h>
 
 #include <cwctype>
+#include <memory>
 
 #include "dopus_wstring_view_span.hh"
 #include "stdafx.h"
 #include "text_utils.hh"
+
+// unlzx
+#include "error.hh"
+
+void Plugin::ReconstructDirStructure() {
+  mRoot = DirEnt();
+  mCurrentDir = &mRoot;
+
+  if (!mArchive)
+    return;
+
+  mFlatMap = mArchive->list_archive();
+  for (auto& [name, entry] : mFlatMap) {
+    std::filesystem::path path(name);
+
+    DirEnt* insertion_point = &mRoot;
+    for (auto segment : path) {
+      insertion_point = &insertion_point->children_[segment.string()];
+    }
+    insertion_point->file_ = &entry;
+  }
+}
+
+std::optional<std::filesystem::path> Plugin::LoadFile(std::filesystem::path path) {
+  path = sanitize(std::move(path));
+  SetError(0);
+
+  if (!mPath.empty() && is_subpath(mPath, path)) {
+    // Path is already loaded, no need to check again.
+    return std::filesystem::relative(path, mPath);
+  }
+
+  // Loading new file. Should we cache this?
+  mPath.clear();
+  mArchive.reset();
+
+  SetError(ERROR_FILE_NOT_FOUND);
+
+  // Walk the pAdfPath up until we find the valid file.
+  std::filesystem::path real_file_path = path;
+  while (!real_file_path.empty()) {
+    if (std::filesystem::exists(real_file_path))
+      break;
+    real_file_path = real_file_path.parent_path();
+  }
+
+  if (real_file_path.empty())
+    return {};
+
+  // Get extension and check if it's supported.
+  auto extension = real_file_path.extension().wstring();
+  std::ranges::transform(extension, extension.begin(), std::towlower);
+  if (extension != L".lzx")
+    return {};
+
+  auto utf_file_path = real_file_path.string();
+
+  mArchive = std::make_shared<Unlzx>();
+  Status result = mArchive->open_archive(utf_file_path.c_str());
+  if (result != Status::Ok)
+    return {};
+
+  SetError(0);
+  mPath = real_file_path;
+  ReconstructDirStructure();
+  return std::filesystem::relative(path, mPath);
+}
+
+bool Plugin::ChangeDir(std::filesystem::path dir) {
+  auto maybe_path = LoadFile(std::move(dir));
+  if (!maybe_path)
+    return false;
+
+  mCurrentDir = &mRoot;
+  if (*maybe_path == ".")
+    return true;
+
+  for (auto segment : *maybe_path) {
+    auto iter = mCurrentDir->children_.find(segment.string());
+    if (iter == mCurrentDir->children_.end())
+      return false;
+    mCurrentDir = &iter->second;
+  }
+  return true;
+}
 
 void Plugin::SetEntryTime(EntryType* pFile, FILETIME pFT) {
   /* Not implemented */
@@ -18,23 +104,81 @@ LPVFSFILEDATAHEADER Plugin::GetfileInformation(std::filesystem::path path, HANDL
   return nullptr;
 }
 
-LPVFSFILEDATAHEADER Plugin::GetVFSforEntry(const EntryType* pEntry, HANDLE pHeap) {
-  /* Not implemented */
-  return nullptr;
+LPVFSFILEDATAHEADER Plugin::GetVFSforEntry(const std::string& name, const DirEnt& entry, HANDLE heap) {
+  LPVFSFILEDATAHEADER node;
+
+  node = static_cast<LPVFSFILEDATAHEADER>(HeapAlloc(heap, 0, sizeof(VFSFILEDATAHEADER) + sizeof(VFSFILEDATA)));
+  if (!node)
+    return nullptr;
+
+  LPVFSFILEDATAW details = reinterpret_cast<LPVFSFILEDATAW>(node + 1);
+
+  node->cbSize = sizeof(VFSFILEDATAHEADER);
+  node->lpNext = nullptr;
+  node->iNumItems = 1;
+  node->cbFileDataSize = sizeof(VFSFILEDATA);
+
+  details->dwFlags = 0;
+  details->lpszComment = nullptr;
+  details->iNumColumns = 0;
+  details->lpvfsColumnData = nullptr;
+
+  GetWfdForEntry(name, entry, &details->wfdData);
+
+  return node;
 }
 
-void Plugin::GetWfdForEntry(const EntryType& entry, LPWIN32_FIND_DATA pData) {
-  /* Not implemented */
-}
+void Plugin::GetWfdForEntry(const std::string& name, const DirEnt& entry, LPWIN32_FIND_DATAW data) {
+  auto wname = utf8_to_wstring(name);
+  StringCchCopyW(data->cFileName, MAX_PATH, wname.c_str());
 
-std::optional<std::filesystem::path> Plugin::LoadFile(std::filesystem::path path) {
-  /* Not implemented */
-  return {};
+  data->nFileSizeHigh = 0;
+  if (entry.file_) {
+    data->nFileSizeLow = entry.file_->unpack_size();
+    data->dwFileAttributes = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_COMPRESSED;
+  } else {
+    data->dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
+  }
+
+  data->dwReserved0 = 0;
+  data->dwReserved1 = 0;
+
+  data->ftCreationTime = {};
+  data->ftLastAccessTime = {};
+  // data->ftLastWriteTime = GetFileTime(entry);
 }
 
 bool Plugin::ReadDirectory(LPVFSREADDIRDATAW lpRDD) {
-  /* Not implemented */
-  return {};
+  // Free directory if lister is closing (otherwise ignore free command)
+  if (lpRDD->vfsReadOp == VFSREAD_FREEDIRCLOSE)
+    return true;
+
+  if (lpRDD->vfsReadOp == VFSREAD_FREEDIR)
+    return true;
+
+  if (!ChangeDir(lpRDD->lpszPath))
+    return false;
+
+  if (lpRDD->vfsReadOp == VFSREAD_CHANGEDIR)
+    return true;
+
+  auto& directory = mCurrentDir->children_;
+  LPVFSFILEDATAHEADER lpLastHeader = nullptr;
+
+  for (const auto& [name, entry] : directory) {
+    auto* node = GetVFSforEntry(name, entry, lpRDD->hMemHeap);
+    if (!node)
+      break;
+
+    if (lpLastHeader) {
+      lpLastHeader->lpNext = node;
+    } else {
+      lpRDD->lpFileData = node;
+    }
+    lpLastHeader = node;
+  }
+
+  return true;
 }
 
 bool Plugin::ReadFile(PluginFile* pFile, std::span<uint8_t> buffer, LPDWORD pReadSize) {

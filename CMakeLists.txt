@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 4.00)
 project(opusPlugin VERSION 1.0 LANGUAGES C CXX)
 
 # Set C++ standard
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Set C standard
@@ -38,6 +38,19 @@ list(APPEND CPP_DIRECTIVES _WIN64)
 else()
     list(APPEND CPP_DIRECTIVES WIN32)
 endif()
+
+include(FetchContent)
+FetchContent_Declare(
+    unlzx
+    GIT_REPOSITORY https://github.com/tomasz-wiszkowski/cxx-unlzx.git
+    GIT_TAG        v1.2
+    GIT_SHALLOW    TRUE
+)
+
+set(BUILD_TESTS OFF)
+set(BUILD_EXECUTABLE OFF)
+
+FetchContent_MakeAvailable(unlzx)
 
 # Add subdirectories
 # add_subdirectory(external/dependency EXCLUDE_FROM_ALL)
