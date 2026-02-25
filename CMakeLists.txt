@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 4.00)
-project(opusPlugin VERSION 1.0 LANGUAGES C CXX)
+
+set(PLUGIN_NAME "OpusLZX")
+project(${PLUGIN_NAME} VERSION 1.0 LANGUAGES C CXX)
 
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 23)

@@ -102,7 +102,7 @@
             "configurePreset": "windows-x64-debug",
             "configuration": "Debug",
             "targets": [
-                "opusPlugin"
+                "OpusLZX"
             ]
         },
         {
@@ -111,7 +111,7 @@
             "configurePreset": "windows-x64-release",
             "configuration": "Release",
             "targets": [
-                "opusPlugin"
+                "OpusLZX"
             ]
         },
         {
@@ -120,7 +120,7 @@
             "configurePreset": "ninja-x64-debug",
             "configuration": "Debug",
             "targets": [
-                "opusPlugin"
+                "OpusLZX"
             ]
         },
         {
@@ -129,7 +129,7 @@
             "configurePreset": "ninja-x64-release",
             "configuration": "Release",
             "targets": [
-                "opusPlugin"
+                "OpusLZX"
             ]
         },
         {
@@ -138,7 +138,7 @@
             "configurePreset": "windows-x86-debug",
             "configuration": "Debug",
             "targets": [
-                "opusPlugin"
+                "OpusLZX"
             ]
         },
         {
@@ -147,7 +147,7 @@
             "configurePreset": "windows-x86-release",
             "configuration": "Release",
             "targets": [
-                "opusPlugin"
+                "OpusLZX"
             ]
         }
     ]

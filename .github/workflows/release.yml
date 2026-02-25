@@ -38,6 +38,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            bin/Release/opusPlugin.dll
+            bin/Release/OpusLZX.dll
             CHANGES.md
           generate_release_notes: true

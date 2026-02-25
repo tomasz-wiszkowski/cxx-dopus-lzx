@@ -28,7 +28,7 @@
 		{
 			"label": "Deploy and Run (Debug)",
 			"type": "shell",
-			"command": "taskkill /F /IM dopus.exe 2>$null; Copy-Item -Path \\\"${workspaceFolder}/bin/Debug/opusPlugin.dll\\\" -Destination \\\"C:/Program Files/GPSoftware/Directory Opus/VFSPlugins/opusPlugin.dll\\\" -Force; Start-Process \\\"C:/Program Files/GPSoftware/Directory Opus/dopus.exe\\\"",
+			"command": "taskkill /F /IM dopus.exe 2>$null; Copy-Item -Path \\\"${workspaceFolder}/bin/Debug/OpusLZX.dll\\\" -Destination \\\"C:/Program Files/GPSoftware/Directory Opus/VFSPlugins/OpusLZX.dll\\\" -Force; Start-Process \\\"C:/Program Files/GPSoftware/Directory Opus/dopus.exe\\\"",
 			"options": {
 				"shell": {
 					"executable": "powershell.exe",
@@ -48,7 +48,7 @@
 		{
 			"label": "Deploy and Run (Release)",
 			"type": "shell",
-			"command": "taskkill /F /IM dopus.exe 2>$null; Copy-Item -Path \\\"${workspaceFolder}/bin/Release/opusPlugin.dll\\\" -Destination \\\"C:/Program Files/GPSoftware/Directory Opus/VFSPlugins/opusPlugin.dll\\\" -Force; Start-Process \\\"C:/Program Files/GPSoftware/Directory Opus/dopus.exe\\\"",
+			"command": "taskkill /F /IM dopus.exe 2>$null; Copy-Item -Path \\\"${workspaceFolder}/bin/Release/OpusLZX.dll\\\" -Destination \\\"C:/Program Files/GPSoftware/Directory Opus/VFSPlugins/OpusLZX.dll\\\" -Force; Start-Process \\\"C:/Program Files/GPSoftware/Directory Opus/dopus.exe\\\"",
 			"options": {
 				"shell": {
 					"executable": "powershell.exe",
@@ -65,7 +65,7 @@
 		{
 			"label": "Deploy (Debug)",
 			"type": "shell",
-			"command": "taskkill /F /IM dopus.exe 2>$null; Copy-Item -Path \\\"${workspaceFolder}/bin/Debug/opusPlugin.dll\\\" -Destination \\\"C:/Program Files/GPSoftware/Directory Opus/VFSPlugins/opusPlugin.dll\\\" -Force",
+			"command": "taskkill /F /IM dopus.exe 2>$null; Copy-Item -Path \\\"${workspaceFolder}/bin/Debug/OpusLZX.dll\\\" -Destination \\\"C:/Program Files/GPSoftware/Directory Opus/VFSPlugins/OpusLZX.dll\\\" -Force",
 			"options": {
 				"shell": {
 					"executable": "powershell.exe",
@@ -85,7 +85,7 @@
 		{
 			"label": "Deploy (Release)",
 			"type": "shell",
-			"command": "taskkill /F /IM dopus.exe 2>$null; Copy-Item -Path \\\"${workspaceFolder}/bin/Release/opusPlugin.dll\\\" -Destination \\\"C:/Program Files/GPSoftware/Directory Opus/VFSPlugins/opusPlugin.dll\\\" -Force",
+			"command": "taskkill /F /IM dopus.exe 2>$null; Copy-Item -Path \\\"${workspaceFolder}/bin/Release/OpusLZX.dll\\\" -Destination \\\"C:/Program Files/GPSoftware/Directory Opus/VFSPlugins/OpusLZX.dll\\\" -Force",
 			"options": {
 				"shell": {
 					"executable": "powershell.exe",
