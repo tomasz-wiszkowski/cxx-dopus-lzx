@@ -1,3 +1,3 @@
-# Directory Opus VFS Plugin Template
+# Directory Opus LZX archive support (read-only)
 
-![img](Template.png)
+![img](Screenshot.png)

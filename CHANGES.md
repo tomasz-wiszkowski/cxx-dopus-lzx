@@ -1,5 +1,5 @@
 # Changelog
 
-## v0.0.1
+## v0.1
 
-Initial template for Opus VFS plugins.
+Initial release with basic support for lzx archive files.
