@@ -103,8 +103,42 @@ void Plugin::SetEntryTime(EntryType* pFile, FILETIME pFT) {
 }
 
 LPVFSFILEDATAHEADER Plugin::GetfileInformation(std::filesystem::path path, HANDLE heap) {
-  /* Not implemented */
-  return nullptr;
+  SetError(ERROR_FILE_NOT_FOUND);
+  if (!ChangeDir(path.parent_path()))
+    return nullptr;
+  auto filename = path.filename().wstring();
+
+  auto iter = mCurrentDir->children_.find(path.filename().string());
+  if (iter == mCurrentDir->children_.end())
+    return {};
+
+  SetError(0);
+  return GetVFSforEntry(iter->first, iter->second, heap);
+}
+
+bool Plugin::GetFileAttr(std::filesystem::path path, LPDWORD pAttr) {
+  path = sanitize(std::move(path));
+  if (!ChangeDir(path))
+    return false;
+
+  if (mCurrentDir->file_) {
+    *pAttr = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_COMPRESSED;
+  } else {
+    *pAttr = FILE_ATTRIBUTE_DIRECTORY;
+  }
+  return true;
+}
+
+bool Plugin::GetFileSize(std::filesystem::path path, PluginFile* file, uint64_t* piFileSize) {
+  path = sanitize(std::move(path));
+  if (!ChangeDir(path))
+    return false;
+
+  if (!mCurrentDir->file_)
+    return false;
+
+  *piFileSize = mCurrentDir->file_->unpack_size();
+  return true;
 }
 
 LPVFSFILEDATAHEADER Plugin::GetVFSforEntry(const std::string& name, const DirEnt& entry, HANDLE heap) {
@@ -394,6 +428,9 @@ bool Plugin::PropGet(vfsProperty propId, LPVOID lpPropData, LPVOID lpData1, LPVO
       break;
 
     case VFSPROP_SHOWPICTURESDIRECTLY:
+      *reinterpret_cast<LPDWORD>(lpPropData) = false;  // I don't think this works like the documentation says.
+      break;
+
     case VFSPROP_SHOWFULLPROGRESSBAR:  // No progress bar even when copying.
       *reinterpret_cast<LPDWORD>(lpPropData) = false;
       break;
@@ -403,7 +440,7 @@ bool Plugin::PropGet(vfsProperty propId, LPVOID lpPropData, LPVOID lpData1, LPVO
       break;
 
     case VFSPROP_BATCHOPERATION:
-      *reinterpret_cast<LPDWORD>(lpPropData) = VFSBATCHRES_HANDLED;
+      *reinterpret_cast<LPDWORD>(lpPropData) = VFSBATCHRES_CALLFOREACH;
       break;
 
     case VFSPROP_GETVALIDACTIONS:

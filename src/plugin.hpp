@@ -94,6 +94,8 @@ class Plugin {
   void FindClose(PluginFindData* lpRAF);
 
   LPVFSFILEDATAHEADER GetfileInformation(std::filesystem::path path, HANDLE heap);
+  bool GetFileSize(std::filesystem::path path, PluginFile* file, uint64_t* piFileSize);
+  bool GetFileAttr(std::filesystem::path path, LPDWORD pAttr);
 
   int Import(LPVOID func_data, std::filesystem::path file, std::filesystem::path path);
   int ImportFile(LPVOID func_data, std::filesystem::path file, std::filesystem::path path);
