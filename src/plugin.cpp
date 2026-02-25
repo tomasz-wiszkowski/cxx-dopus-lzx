@@ -466,7 +466,9 @@ bool Plugin::ExtractEntries(LPVOID func_data, dopus::wstring_view_span entry_nam
     if (!file_iter->second.file_)
       continue;
 
-    auto target_file = target_path / source_path.filename();
+    auto relative_path = std::filesystem::relative(source_path, mPath);
+    auto target_file = target_path / relative_path;
+    std::filesystem::create_directories(target_file.parent_path());
     file_iter->second.extracted_path_ = target_file;
     std::ofstream target(target_file, std::ios_base::trunc | std::ios_base::out | std::ios_base::binary);
     for (auto segment : file_iter->second.file_->segments()) {
