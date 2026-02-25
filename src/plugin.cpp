@@ -15,6 +15,8 @@
 
 DOpusPluginHelperFunction DOpus;
 
+// --- Directory Structure & Navigation ---
+
 void Plugin::ReconstructDirStructure() {
   mRoot = std::make_shared<DirEnt>();
   mCurrentDir = mRoot.get();
@@ -33,6 +35,88 @@ void Plugin::ReconstructDirStructure() {
     insertion_point->file_ = &entry;
   }
 }
+
+bool Plugin::ChangeDir(std::filesystem::path dir) {
+  dir = sanitize(std::move(dir));
+  auto maybe_path = LoadFile(std::move(dir));
+  if (!maybe_path)
+    return false;
+
+  mCurrentDir = mRoot.get();
+  if (*maybe_path == ".")
+    return true;
+
+  for (auto segment : *maybe_path) {
+    auto iter = mCurrentDir->children_.find(segment.string());
+    if (iter == mCurrentDir->children_.end())
+      return false;
+    mCurrentDir = &iter->second;
+  }
+  return true;
+}
+
+// --- Entry Information ---
+
+LPVFSFILEDATAHEADER Plugin::GetVFSforEntry(const std::string& name, const DirEnt& entry, HANDLE heap) {
+  LPVFSFILEDATAHEADER node;
+
+  node = static_cast<LPVFSFILEDATAHEADER>(HeapAlloc(heap, 0, sizeof(VFSFILEDATAHEADER) + sizeof(VFSFILEDATA)));
+  if (!node)
+    return nullptr;
+
+  LPVFSFILEDATAW details = reinterpret_cast<LPVFSFILEDATAW>(node + 1);
+
+  node->cbSize = sizeof(VFSFILEDATAHEADER);
+  node->lpNext = nullptr;
+  node->iNumItems = 1;
+  node->cbFileDataSize = sizeof(VFSFILEDATA);
+
+  details->dwFlags = 0;
+  details->lpszComment = nullptr;
+  details->iNumColumns = 0;
+  details->lpvfsColumnData = nullptr;
+
+  GetWfdForEntry(name, entry, &details->wfdData);
+
+  return node;
+}
+
+void Plugin::GetWfdForEntry(const std::string& name, const DirEnt& entry, LPWIN32_FIND_DATAW data) {
+  auto wname = utf8_to_wstring(name);
+  StringCchCopyW(data->cFileName, MAX_PATH, wname.c_str());
+
+  data->nFileSizeHigh = 0;
+  if (entry.file_) {
+    data->nFileSizeLow = entry.file_->unpack_size();
+    data->dwFileAttributes = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_COMPRESSED;
+  } else {
+    data->dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
+  }
+
+  data->dwReserved0 = 0;
+  data->dwReserved1 = 0;
+
+  data->ftCreationTime = {};
+  data->ftLastAccessTime = {};
+  // data->ftLastWriteTime = GetFileTime(entry);
+}
+
+// --- State Management & Helpers ---
+
+Guard<HANDLE> Plugin::SetAbortHandle(HANDLE& hAbortEvent) {
+  return Guard<HANDLE>(mAbortEvent, hAbortEvent);
+}
+
+bool Plugin::ShouldAbort() const {
+  return mAbortEvent && WaitForSingleObject(mAbortEvent, 0) == WAIT_OBJECT_0;
+}
+
+void Plugin::SetError(int error) {
+  mLastError = error;
+  ::SetLastError(error);
+}
+
+// --- Initialization & Archive Info ---
 
 std::optional<std::filesystem::path> Plugin::LoadFile(std::filesystem::path path) {
   path = sanitize(std::move(path));
@@ -79,107 +163,17 @@ std::optional<std::filesystem::path> Plugin::LoadFile(std::filesystem::path path
   return std::filesystem::relative(path, mPath);
 }
 
-bool Plugin::ChangeDir(std::filesystem::path dir) {
-  dir = sanitize(std::move(dir));
-  auto maybe_path = LoadFile(std::move(dir));
-  if (!maybe_path)
-    return false;
-
-  mCurrentDir = mRoot.get();
-  if (*maybe_path == ".")
-    return true;
-
-  for (auto segment : *maybe_path) {
-    auto iter = mCurrentDir->children_.find(segment.string());
-    if (iter == mCurrentDir->children_.end())
-      return false;
-    mCurrentDir = &iter->second;
-  }
-  return true;
+size_t Plugin::GetAvailableSize() {
+  /* Not implemented */
+  return {};
 }
 
-LPVFSFILEDATAHEADER Plugin::GetfileInformation(std::filesystem::path path, HANDLE heap) {
-  SetError(ERROR_FILE_NOT_FOUND);
-  if (!ChangeDir(path.parent_path()))
-    return nullptr;
-  auto filename = path.filename().wstring();
-
-  auto iter = mCurrentDir->children_.find(path.filename().string());
-  if (iter == mCurrentDir->children_.end())
-    return {};
-
-  SetError(0);
-  return GetVFSforEntry(iter->first, iter->second, heap);
+size_t Plugin::GetTotalSize() {
+  /* Not implemented */
+  return {};
 }
 
-bool Plugin::GetFileAttr(std::filesystem::path path, LPDWORD pAttr) {
-  path = sanitize(std::move(path));
-  if (!ChangeDir(path))
-    return false;
-
-  if (mCurrentDir->file_) {
-    *pAttr = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_COMPRESSED;
-  } else {
-    *pAttr = FILE_ATTRIBUTE_DIRECTORY;
-  }
-  return true;
-}
-
-bool Plugin::GetFileSize(std::filesystem::path path, PluginFile* file, uint64_t* piFileSize) {
-  path = sanitize(std::move(path));
-  if (!ChangeDir(path))
-    return false;
-
-  if (!mCurrentDir->file_)
-    return false;
-
-  *piFileSize = mCurrentDir->file_->unpack_size();
-  return true;
-}
-
-LPVFSFILEDATAHEADER Plugin::GetVFSforEntry(const std::string& name, const DirEnt& entry, HANDLE heap) {
-  LPVFSFILEDATAHEADER node;
-
-  node = static_cast<LPVFSFILEDATAHEADER>(HeapAlloc(heap, 0, sizeof(VFSFILEDATAHEADER) + sizeof(VFSFILEDATA)));
-  if (!node)
-    return nullptr;
-
-  LPVFSFILEDATAW details = reinterpret_cast<LPVFSFILEDATAW>(node + 1);
-
-  node->cbSize = sizeof(VFSFILEDATAHEADER);
-  node->lpNext = nullptr;
-  node->iNumItems = 1;
-  node->cbFileDataSize = sizeof(VFSFILEDATA);
-
-  details->dwFlags = 0;
-  details->lpszComment = nullptr;
-  details->iNumColumns = 0;
-  details->lpvfsColumnData = nullptr;
-
-  GetWfdForEntry(name, entry, &details->wfdData);
-
-  return node;
-}
-
-void Plugin::GetWfdForEntry(const std::string& name, const DirEnt& entry, LPWIN32_FIND_DATAW data) {
-  auto wname = utf8_to_wstring(name);
-  StringCchCopyW(data->cFileName, MAX_PATH, wname.c_str());
-
-  data->nFileSizeHigh = 0;
-  if (entry.file_) {
-    data->nFileSizeLow = entry.file_->unpack_size();
-    data->dwFileAttributes = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_COMPRESSED;
-  } else {
-    data->dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
-  }
-
-  data->dwReserved0 = 0;
-  data->dwReserved1 = 0;
-
-  data->ftCreationTime = {};
-  data->ftLastAccessTime = {};
-  // data->ftLastWriteTime = GetFileTime(entry);
-}
+// --- Directory Reading ---
 
 bool Plugin::ReadDirectory(LPVFSREADDIRDATAW lpRDD) {
   // Free directory if lister is closing (otherwise ignore free command)
@@ -212,6 +206,27 @@ bool Plugin::ReadDirectory(LPVFSREADDIRDATAW lpRDD) {
   }
 
   return true;
+}
+
+// --- File I/O ---
+
+PluginFile* Plugin::OpenFile(std::filesystem::path path, bool for_writing) {
+  path = sanitize(std::move(path));
+  if (!ChangeDir(path.parent_path()))
+    return {};
+
+  if (for_writing)
+    return {};
+
+  auto iter = mCurrentDir->children_.find(path.filename().string());
+  if (iter == mCurrentDir->children_.end())
+    return {};
+  if (!iter->second.file_)
+    return {};
+
+  auto result = new PluginFile();
+  result->file_ = iter->second.file_;
+  return result;
 }
 
 bool Plugin::ReadFile(PluginFile* file, std::span<uint8_t> buffer, LPDWORD read_size) {
@@ -251,33 +266,127 @@ bool Plugin::ReadFile(PluginFile* file, std::span<uint8_t> buffer, LPDWORD read_
   return true;
 }
 
-bool Plugin::WriteFile(PluginFile* pFile, std::span<uint8_t> buffer, LPDWORD pWriteSize) {
+void Plugin::CloseFile(PluginFile* file) {
+  delete file;
+}
+
+// --- File Enumeration ---
+
+PluginFindData* Plugin::FindFirst(std::filesystem::path path, LPWIN32_FIND_DATA lpwfdData, HANDLE hAbortEvent) {
   /* Not implemented */
   return {};
 }
 
-PluginFile* Plugin::OpenFile(std::filesystem::path path, bool for_writing) {
-  path = sanitize(std::move(path));
-  if (!ChangeDir(path.parent_path()))
-    return {};
+bool Plugin::FindNext(PluginFindData* lpRAF, LPWIN32_FIND_DATA lpwfdData) {
+  /* Not implemented */
+  return {};
+}
 
-  if (for_writing)
-    return {};
+void Plugin::FindClose(PluginFindData* pFindData) {
+  /* Not implemented */
+}
+
+// --- File Information & Attributes ---
+
+LPVFSFILEDATAHEADER Plugin::GetfileInformation(std::filesystem::path path, HANDLE heap) {
+  SetError(ERROR_FILE_NOT_FOUND);
+  if (!ChangeDir(path.parent_path()))
+    return nullptr;
+  auto filename = path.filename().wstring();
 
   auto iter = mCurrentDir->children_.find(path.filename().string());
   if (iter == mCurrentDir->children_.end())
     return {};
-  if (!iter->second.file_)
-    return {};
 
-  auto result = new PluginFile();
-  result->file_ = iter->second.file_;
-  return result;
+  SetError(0);
+  return GetVFSforEntry(iter->first, iter->second, heap);
 }
 
-void Plugin::CloseFile(PluginFile* file) {
-  delete file;
+bool Plugin::GetFileSize(std::filesystem::path path, PluginFile* file, uint64_t* piFileSize) {
+  path = sanitize(std::move(path));
+  if (!ChangeDir(path))
+    return false;
+
+  if (!mCurrentDir->file_)
+    return false;
+
+  *piFileSize = mCurrentDir->file_->unpack_size();
+  return true;
 }
+
+bool Plugin::GetFileAttr(std::filesystem::path path, LPDWORD pAttr) {
+  path = sanitize(std::move(path));
+  if (!ChangeDir(path))
+    return false;
+
+  if (mCurrentDir->file_) {
+    *pAttr = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_COMPRESSED;
+  } else {
+    *pAttr = FILE_ATTRIBUTE_DIRECTORY;
+  }
+  return true;
+}
+
+// --- Extraction ---
+
+bool Plugin::Extract(LPVOID func_data, std::filesystem::path source_path, std::filesystem::path target_path) {
+  /* Not implemented */
+  return {};
+}
+
+bool Plugin::ExtractFile(LPVOID func_data, const EntryType& pEntry, std::filesystem::path target_path) {
+  /* Not implemented */
+  return {};
+}
+
+bool Plugin::ExtractPath(LPVOID func_data, std::filesystem::path source_path, std::filesystem::path target_path) {
+  /* Not implemented */
+  return {};
+}
+
+bool Plugin::ExtractEntries(LPVOID func_data, dopus::wstring_view_span entry_names, std::filesystem::path target_path) {
+  SetError(0);
+  for (auto name : entry_names) {
+    std::filesystem::path source_path = sanitize(name);
+    // Directory not found.
+    if (!ChangeDir(source_path.parent_path()))
+      continue;
+
+    // File not found.
+    auto file_iter = mCurrentDir->children_.find(source_path.filename().string());
+    if (file_iter == mCurrentDir->children_.end())
+      continue;
+
+    // Not a file.
+    if (!file_iter->second.file_)
+      continue;
+
+    auto relative_path = std::filesystem::relative(source_path, mPath);
+    auto target_file = target_path / relative_path;
+    std::filesystem::create_directories(target_file.parent_path());
+    file_iter->second.extracted_path_ = target_file;
+    std::ofstream target(target_file, std::ios_base::trunc | std::ios_base::out | std::ios_base::binary);
+    for (auto segment : file_iter->second.file_->segments()) {
+      if (target.bad())
+        break;
+
+      auto data = segment.data();
+
+      // Decompress failure.
+      if (segment.status() != Status::Ok)
+        break;
+
+      // Write failure.
+      target.write(reinterpret_cast<const char*>(data.data()), data.size());
+    }
+    target.close();
+    DOpus.AddFunctionFileChange(func_data, /* fIsDest= */ false, OPUSFILECHANGE_CREATE, target_file.c_str());
+  }
+
+  return true;
+}
+
+// --- Plugin API Specifics ---
 
 int Plugin::ContextVerb(LPVFSCONTEXTVERBDATAW lpVerbData) {
   std::filesystem::path full_path = sanitize(lpVerbData->lpszPath);
@@ -298,53 +407,6 @@ int Plugin::ContextVerb(LPVFSCONTEXTVERBDATAW lpVerbData) {
   // right.
   StringCchCopyW(lpVerbData->lpszNewPath, MAX_PATH, item->second.extracted_path_.wstring().c_str());
   return VFSCVRES_CHANGE;
-}
-
-PluginFindData* Plugin::FindFirst(std::filesystem::path path, LPWIN32_FIND_DATA lpwfdData, HANDLE hAbortEvent) {
-  /* Not implemented */
-  return {};
-}
-
-bool Plugin::FindNext(PluginFindData* lpRAF, LPWIN32_FIND_DATA lpwfdData) {
-  /* Not implemented */
-  return {};
-}
-
-void Plugin::FindClose(PluginFindData* pFindData) {
-  /* Not implemented */
-}
-
-bool Plugin::Extract(LPVOID func_data, std::filesystem::path source_path, std::filesystem::path target_path) {
-  /* Not implemented */
-  return {};
-}
-
-bool Plugin::ExtractPath(LPVOID func_data, std::filesystem::path source_path, std::filesystem::path target_path) {
-  /* Not implemented */
-  return {};
-}
-
-bool Plugin::ExtractFile(LPVOID func_data, const EntryType& pEntry, std::filesystem::path target_path) {
-  /* Not implemented */
-  return {};
-}
-
-size_t Plugin::GetAvailableSize() {
-  /* Not implemented */
-  return {};
-}
-
-size_t Plugin::GetTotalSize() {
-  /* Not implemented */
-  return {};
-}
-
-Guard<HANDLE> Plugin::SetAbortHandle(HANDLE& hAbortEvent) {
-  return Guard<HANDLE>(mAbortEvent, hAbortEvent);
-}
-
-bool Plugin::ShouldAbort() const {
-  return mAbortEvent && WaitForSingleObject(mAbortEvent, 0) == WAIT_OBJECT_0;
 }
 
 uint32_t Plugin::BatchOperation(std::filesystem::path path, LPVFSBATCHDATAW lpBatchData) {
@@ -427,51 +489,4 @@ bool Plugin::PropGet(vfsProperty propId, LPVOID lpPropData, LPVOID lpData1, LPVO
   }
 
   return true;
-}
-
-bool Plugin::ExtractEntries(LPVOID func_data, dopus::wstring_view_span entry_names, std::filesystem::path target_path) {
-  SetError(0);
-  for (auto name : entry_names) {
-    std::filesystem::path source_path = sanitize(name);
-    // Directory not found.
-    if (!ChangeDir(source_path.parent_path()))
-      continue;
-
-    // File not found.
-    auto file_iter = mCurrentDir->children_.find(source_path.filename().string());
-    if (file_iter == mCurrentDir->children_.end())
-      continue;
-
-    // Not a file.
-    if (!file_iter->second.file_)
-      continue;
-
-    auto relative_path = std::filesystem::relative(source_path, mPath);
-    auto target_file = target_path / relative_path;
-    std::filesystem::create_directories(target_file.parent_path());
-    file_iter->second.extracted_path_ = target_file;
-    std::ofstream target(target_file, std::ios_base::trunc | std::ios_base::out | std::ios_base::binary);
-    for (auto segment : file_iter->second.file_->segments()) {
-      if (target.bad())
-        break;
-
-      auto data = segment.data();
-
-      // Decompress failure.
-      if (segment.status() != Status::Ok)
-        break;
-
-      // Write failure.
-      target.write(reinterpret_cast<const char*>(data.data()), data.size());
-    }
-    target.close();
-    DOpus.AddFunctionFileChange(func_data, /* fIsDest= */ false, OPUSFILECHANGE_CREATE, target_file.c_str());
-  }
-
-  return true;
-}
-
-void Plugin::SetError(int error) {
-  mLastError = error;
-  ::SetLastError(error);
 }
