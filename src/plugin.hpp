@@ -48,7 +48,6 @@ class Plugin {
 
     std::map<std::string, DirEnt> children_;
     LzxEntry* file_{};
-    std::filesystem::path extracted_path_;
   };
 
   using EntryType = void*;
@@ -205,7 +204,7 @@ class Plugin {
   /// @param pEntry The entry to extract.
   /// @param target_path Destination path on disk.
   /// @return true if successful, false otherwise.
-  bool ExtractFile(LPVOID func_data, const EntryType& pEntry, std::filesystem::path target_path);
+  bool ExtractFile(LPVOID func_data, const DirEnt& pEntry, std::filesystem::path target_path);
 
   /// @brief Extracts all files in a path.
   /// @param func_data Plugin-specific function data.

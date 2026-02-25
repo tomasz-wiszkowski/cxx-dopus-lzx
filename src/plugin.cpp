@@ -330,57 +330,70 @@ bool Plugin::GetFileAttr(std::filesystem::path path, LPDWORD pAttr) {
 // --- Extraction ---
 
 bool Plugin::Extract(LPVOID func_data, std::filesystem::path source_path, std::filesystem::path target_path) {
-  /* Not implemented */
-  return {};
+  source_path = sanitize(std::move(source_path));
+  if (!ChangeDir(source_path.parent_path()))
+    return false;
+
+  auto iter = mCurrentDir->children_.find(source_path.filename().string());
+  if (iter == mCurrentDir->children_.end())
+    return false;
+
+  if (iter->second.file_) {
+    return ExtractFile(func_data, iter->second, target_path / std::filesystem::relative(source_path, mPath));
+  } else {
+    return ExtractPath(func_data, source_path, target_path);
+  }
 }
 
-bool Plugin::ExtractFile(LPVOID func_data, const EntryType& pEntry, std::filesystem::path target_path) {
-  /* Not implemented */
-  return {};
+bool Plugin::ExtractFile(LPVOID func_data, const DirEnt& entry, std::filesystem::path target_path) {
+  if (!entry.file_)
+    return false;
+
+  std::filesystem::create_directories(target_path.parent_path());
+  std::ofstream target(target_path, std::ios_base::trunc | std::ios_base::out | std::ios_base::binary);
+  for (auto segment : entry.file_->segments()) {
+    if (target.bad())
+      break;
+
+    auto data = segment.data();
+
+    // Decompress failure.
+    if (segment.status() != Status::Ok)
+      break;
+
+    // Write failure.
+    target.write(reinterpret_cast<const char*>(data.data()), data.size());
+  }
+  target.close();
+  DOpus.AddFunctionFileChange(func_data, /* fIsDest= */ false, OPUSFILECHANGE_CREATE, target_path.c_str());
+
+  return true;
 }
 
 bool Plugin::ExtractPath(LPVOID func_data, std::filesystem::path source_path, std::filesystem::path target_path) {
-  /* Not implemented */
-  return {};
+  source_path = sanitize(std::move(source_path));
+  if (!ChangeDir(source_path))
+    return false;
+
+  std::vector<std::string> children;
+  for (const auto& [name, entry] : mCurrentDir->children_) {
+    children.push_back(name);
+  }
+
+  bool success = true;
+  for (const auto& child : children) {
+    if (!Extract(func_data, source_path / child, target_path)) {
+      success = false;
+    }
+  }
+  return success;
 }
 
 bool Plugin::ExtractEntries(LPVOID func_data, dopus::wstring_view_span entry_names, std::filesystem::path target_path) {
   SetError(0);
   for (auto name : entry_names) {
     std::filesystem::path source_path = sanitize(name);
-    // Directory not found.
-    if (!ChangeDir(source_path.parent_path()))
-      continue;
-
-    // File not found.
-    auto file_iter = mCurrentDir->children_.find(source_path.filename().string());
-    if (file_iter == mCurrentDir->children_.end())
-      continue;
-
-    // Not a file.
-    if (!file_iter->second.file_)
-      continue;
-
-    auto relative_path = std::filesystem::relative(source_path, mPath);
-    auto target_file = target_path / relative_path;
-    std::filesystem::create_directories(target_file.parent_path());
-    file_iter->second.extracted_path_ = target_file;
-    std::ofstream target(target_file, std::ios_base::trunc | std::ios_base::out | std::ios_base::binary);
-    for (auto segment : file_iter->second.file_->segments()) {
-      if (target.bad())
-        break;
-
-      auto data = segment.data();
-
-      // Decompress failure.
-      if (segment.status() != Status::Ok)
-        break;
-
-      // Write failure.
-      target.write(reinterpret_cast<const char*>(data.data()), data.size());
-    }
-    target.close();
-    DOpus.AddFunctionFileChange(func_data, /* fIsDest= */ false, OPUSFILECHANGE_CREATE, target_file.c_str());
+    Extract(func_data, source_path, target_path);
   }
 
   return true;
@@ -400,18 +413,22 @@ int Plugin::ContextVerb(LPVFSCONTEXTVERBDATAW lpVerbData) {
   if (!item->second.file_)
     return VFSCVRES_DEFAULT;
 
-  if (item->second.extracted_path_.empty())
-    return VFSCVRES_EXTRACT;
-
-  // I honestly have no clue what the expectation here is; this kind of works on the second double click but that ain't
-  // right.
-  StringCchCopyW(lpVerbData->lpszNewPath, MAX_PATH, item->second.extracted_path_.wstring().c_str());
-  return VFSCVRES_CHANGE;
+  return VFSCVRES_EXTRACT;
 }
 
 uint32_t Plugin::BatchOperation(std::filesystem::path path, LPVFSBATCHDATAW lpBatchData) {
+  switch (lpBatchData->uiOperation) {
+    case VFSBATCHOP_EXTRACT:
+      if (ExtractEntries(lpBatchData->lpFuncData, dopus::wstring_view_span(lpBatchData->pszFiles),
+                         lpBatchData->pszDestPath))
+        return VFSBATCHRES_HANDLED;
+      break;
+
+    default:
+      break;
+  }
   /* Not implemented */
-  return {};
+  return VFSBATCHRES_ABORT;
 }
 
 bool Plugin::PropGet(vfsProperty propId, LPVOID lpPropData, LPVOID lpData1, LPVOID lpData2, LPVOID lpData3) {
@@ -433,7 +450,7 @@ bool Plugin::PropGet(vfsProperty propId, LPVOID lpPropData, LPVOID lpData1, LPVO
       break;
 
     case VFSPROP_SHOWPICTURESDIRECTLY:
-      *reinterpret_cast<LPDWORD>(lpPropData) = false;  // I don't think this works like the documentation says.
+      *reinterpret_cast<LPDWORD>(lpPropData) = true;
       break;
 
     case VFSPROP_SHOWFULLPROGRESSBAR:  // No progress bar even when copying.
@@ -445,7 +462,7 @@ bool Plugin::PropGet(vfsProperty propId, LPVOID lpPropData, LPVOID lpData1, LPVO
       break;
 
     case VFSPROP_BATCHOPERATION:
-      *reinterpret_cast<LPDWORD>(lpPropData) = VFSBATCHRES_CALLFOREACH;
+      *reinterpret_cast<LPDWORD>(lpPropData) = VFSBATCHRES_HANDLED;
       break;
 
     case VFSPROP_GETVALIDACTIONS:
