@@ -98,10 +98,6 @@ bool Plugin::ChangeDir(std::filesystem::path dir) {
   return true;
 }
 
-void Plugin::SetEntryTime(EntryType* pFile, FILETIME pFT) {
-  /* Not implemented */
-}
-
 LPVFSFILEDATAHEADER Plugin::GetfileInformation(std::filesystem::path path, HANDLE heap) {
   SetError(ERROR_FILE_NOT_FOUND);
   if (!ChangeDir(path.parent_path()))
@@ -283,16 +279,6 @@ void Plugin::CloseFile(PluginFile* file) {
   delete file;
 }
 
-bool Plugin::MoveFile(std::filesystem::path old_name, std::filesystem::path new_name) {
-  /* Not implemented */
-  return {};
-}
-
-bool Plugin::CreateDir(std::filesystem::path path) {
-  /* Not implemented */
-  return {};
-}
-
 int Plugin::ContextVerb(LPVFSCONTEXTVERBDATAW lpVerbData) {
   std::filesystem::path full_path = sanitize(lpVerbData->lpszPath);
   if (!ChangeDir(full_path.parent_path()))
@@ -314,11 +300,6 @@ int Plugin::ContextVerb(LPVFSCONTEXTVERBDATAW lpVerbData) {
   return VFSCVRES_CHANGE;
 }
 
-bool Plugin::Delete(LPVOID func_data, std::filesystem::path path, std::set<std::filesystem::path> files, bool pAll) {
-  /* Not implemented */
-  return {};
-}
-
 PluginFindData* Plugin::FindFirst(std::filesystem::path path, LPWIN32_FIND_DATA lpwfdData, HANDLE hAbortEvent) {
   /* Not implemented */
   return {};
@@ -331,44 +312,6 @@ bool Plugin::FindNext(PluginFindData* lpRAF, LPWIN32_FIND_DATA lpwfdData) {
 
 void Plugin::FindClose(PluginFindData* pFindData) {
   /* Not implemented */
-}
-
-int Plugin::ImportFile(LPVOID func_data, std::filesystem::path destination, std::filesystem::path source) {
-  /* Not implemented */
-  return {};
-}
-
-std::vector<std::wstring> directoryList(std::filesystem::path path) {
-  WIN32_FIND_DATAW fdata;
-  HANDLE dhandle;
-  std::vector<std::wstring> results;
-
-  // CAREFUL: this uses similarly named system functions.
-  if ((dhandle = ::FindFirstFileW(path.native().data(), &fdata)) == INVALID_HANDLE_VALUE)
-    return results;
-
-  results.emplace_back(fdata.cFileName);
-
-  while (true) {
-    if (::FindNextFileW(dhandle, &fdata)) {
-      results.emplace_back(fdata.cFileName);
-    } else {
-      if (GetLastError() == ERROR_NO_MORE_FILES) {
-        break;
-      } else {
-        FindClose(dhandle);
-        return results;
-      }
-    }
-  }
-
-  FindClose(dhandle);
-  return results;
-}
-
-int Plugin::ImportPath(LPVOID func_data, std::filesystem::path destination, std::filesystem::path source) {
-  /* Not implemented */
-  return {};
 }
 
 bool Plugin::Extract(LPVOID func_data, std::filesystem::path source_path, std::filesystem::path target_path) {

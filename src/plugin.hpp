@@ -67,7 +67,6 @@ class Plugin {
   bool ShouldAbort() const;
 
   FILETIME GetFileTime(const EntryType& entry);
-  void SetEntryTime(EntryType* pFile, FILETIME pFT);
 
   void SetError(int error);
 
@@ -81,13 +80,8 @@ class Plugin {
   PluginFile* OpenFile(std::filesystem::path path, bool for_writing);
   void CloseFile(PluginFile* pFile);
 
-  bool MoveFile(std::filesystem::path old_name, std::filesystem::path new_name);
-  bool CreateDir(std::filesystem::path path);
-
   size_t GetAvailableSize();
   size_t GetTotalSize();
-
-  bool Delete(LPVOID func_data, std::filesystem::path path, std::set<std::filesystem::path> files, bool pAll = false);
 
   PluginFindData* FindFirst(std::filesystem::path path, LPWIN32_FIND_DATA lpwfdData, HANDLE hAbortEvent);
   bool FindNext(PluginFindData* lpRAF, LPWIN32_FIND_DATA lpwfdData);
@@ -96,10 +90,6 @@ class Plugin {
   LPVFSFILEDATAHEADER GetfileInformation(std::filesystem::path path, HANDLE heap);
   bool GetFileSize(std::filesystem::path path, PluginFile* file, uint64_t* piFileSize);
   bool GetFileAttr(std::filesystem::path path, LPDWORD pAttr);
-
-  int Import(LPVOID func_data, std::filesystem::path file, std::filesystem::path path);
-  int ImportFile(LPVOID func_data, std::filesystem::path file, std::filesystem::path path);
-  int ImportPath(LPVOID func_data, std::filesystem::path file, std::filesystem::path path);
 
   bool Extract(LPVOID func_data, std::filesystem::path source_path, std::filesystem::path target_path);
   bool ExtractFile(LPVOID func_data, const EntryType& pEntry, std::filesystem::path target_path);
