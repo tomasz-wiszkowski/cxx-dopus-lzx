@@ -19,7 +19,7 @@ __declspec(dllexport) bool VFS_IdentifyW(LPVFSPLUGININFOW lpVFSInfo) {
 
   StringCchCopyW(lpVFSInfo->lpszHandleExts, lpVFSInfo->cchHandleExtsMax, L".lzx");
   StringCchCopyW(lpVFSInfo->lpszName, lpVFSInfo->cchNameMax, L"LZX");
-  StringCchCopyW(lpVFSInfo->lpszDescription, lpVFSInfo->cchDescriptionMax, L"LZX file support (read-only)");
+  StringCchCopyW(lpVFSInfo->lpszDescription, lpVFSInfo->cchDescriptionMax, L"LZX file support (read-only) v0.1");
   StringCchCopyW(lpVFSInfo->lpszCopyright, lpVFSInfo->cchCopyrightMax, L"(c) Copyright 2026 Tomasz Wiszkowski");
   StringCchCopyW(lpVFSInfo->lpszURL, lpVFSInfo->cchURLMax, L"github.com/tomasz-wiszkowski/cxx-dopus-lzx");
 
