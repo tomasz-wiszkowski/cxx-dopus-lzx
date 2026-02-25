@@ -375,9 +375,9 @@ bool Plugin::Extract(LPVOID func_data, std::filesystem::path source_path, std::f
     return false;
 
   if (iter->second.file_) {
-    return ExtractFile(func_data, iter->second, target_path / std::filesystem::relative(source_path, mPath));
+    return ExtractFile(func_data, iter->second, target_path / source_path.filename());
   } else {
-    return ExtractPath(func_data, source_path, target_path);
+    return ExtractPath(func_data, source_path, target_path / source_path.filename());
   }
 }
 
