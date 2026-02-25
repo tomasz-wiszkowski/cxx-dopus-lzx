@@ -272,18 +272,54 @@ void Plugin::CloseFile(PluginFile* file) {
 
 // --- File Enumeration ---
 
+struct PluginFindData {
+  std::map<std::string, Plugin::DirEnt>::iterator current;
+  std::map<std::string, Plugin::DirEnt>::iterator end;
+};
+
 PluginFindData* Plugin::FindFirst(std::filesystem::path path, LPWIN32_FIND_DATA lpwfdData, HANDLE hAbortEvent) {
-  /* Not implemented */
-  return {};
+  SetError(0);
+  path = sanitize(std::move(path));
+
+  // We assume the pattern is always '*' (or similar), so we just list the directory.
+  if (!ChangeDir(path.parent_path())) {
+    SetError(ERROR_PATH_NOT_FOUND);
+    return nullptr;
+  }
+
+  auto* find_data = new PluginFindData();
+  find_data->current = mCurrentDir->children_.begin();
+  find_data->end = mCurrentDir->children_.end();
+
+  if (FindNext(find_data, lpwfdData)) {
+    return find_data;
+  }
+
+  delete find_data;
+  return nullptr;
 }
 
 bool Plugin::FindNext(PluginFindData* lpRAF, LPWIN32_FIND_DATA lpwfdData) {
-  /* Not implemented */
-  return {};
+  SetError(0);
+  if (!lpRAF) {
+    SetError(ERROR_INVALID_HANDLE);
+    return false;
+  }
+
+  if (lpRAF->current != lpRAF->end) {
+    auto& [name, entry] = *lpRAF->current;
+    lpRAF->current++;
+
+    GetWfdForEntry(name, entry, lpwfdData);
+    return true;
+  }
+
+  SetError(ERROR_NO_MORE_FILES);
+  return false;
 }
 
 void Plugin::FindClose(PluginFindData* pFindData) {
-  /* Not implemented */
+  delete pFindData;
 }
 
 // --- File Information & Attributes ---

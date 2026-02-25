@@ -30,7 +30,7 @@ class Guard {
 };
 
 /// @brief Opaque handle for file enumeration.
-class PluginFindData {};
+struct PluginFindData;
 
 /// @brief Represents an open file within the archive.
 struct PluginFile {
@@ -40,7 +40,7 @@ struct PluginFile {
 
 /// @brief Main plugin class handling LZX archive interactions.
 class Plugin {
- private:
+ public:
   struct DirEnt {
     DirEnt() = default;
     DirEnt(const DirEnt&) = delete;
@@ -49,6 +49,8 @@ class Plugin {
     std::map<std::string, DirEnt> children_;
     LzxEntry* file_{};
   };
+
+ private:
 
   using EntryType = void*;
   HANDLE mAbortEvent{};
