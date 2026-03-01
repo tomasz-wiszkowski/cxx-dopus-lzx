@@ -12,6 +12,29 @@
 
 DOpusPluginHelperFunction DOpus;
 
+namespace {
+/// @brief  Creates a FILETIME structure representing the given UTC time components.
+std::optional<FILETIME> MakeFileTime(WORD year, WORD month, WORD day, WORD hour, WORD minute, WORD second) {
+  SYSTEMTIME local{.wYear = year,
+                   .wMonth = month,
+                   .wDay = day,
+                   .wHour = hour,
+                   .wMinute = minute,
+                   .wSecond = second,
+                   .wMilliseconds = 0};
+
+  SYSTEMTIME utc{};
+  if (!TzSpecificLocalTimeToSystemTime(nullptr, &local, &utc))
+    return {};
+
+  FILETIME ft{};
+  if (!SystemTimeToFileTime(&utc, &ft))
+    return {};
+
+  return ft;
+}
+}  // namespace
+
 // --- Directory Structure & Navigation ---
 
 void Plugin::ReconstructDirStructure() {
@@ -113,6 +136,13 @@ void Plugin::GetWfdForEntry(const std::string& name, const DirEnt& item, LPWIN32
       data->dwFileAttributes |= FILE_ATTRIBUTE_ARCHIVE;
     if (flags.script)
       data->dwFileAttributes |= FILE_ATTRIBUTE_SYSTEM;
+
+    auto datestamp = item.entry_->datestamp();
+    data->ftLastAccessTime = MakeFileTime(datestamp.year(), datestamp.month() + 1, datestamp.day(), datestamp.hour(),
+                                          datestamp.minute(), datestamp.second())
+                                 .value_or(FILETIME{});
+    data->ftCreationTime = data->ftLastAccessTime;
+    data->ftLastWriteTime = data->ftLastAccessTime;
   }
 
   data->dwReserved0 = 0;
