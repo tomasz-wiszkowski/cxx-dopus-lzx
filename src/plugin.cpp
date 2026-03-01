@@ -26,10 +26,16 @@ void Plugin::ReconstructDirStructure() {
     std::filesystem::path path(name);
 
     DirEnt* insertion_point = mRoot.get();
-    for (auto segment : path) {
+
+    // Skip the empty filename component if path refers to a directory.
+    for (auto segment : path.parent_path()) {
       insertion_point = &insertion_point->children_[segment.string()];
     }
-    insertion_point->file_ = &entry;
+
+    if (path.has_filename()) {
+      insertion_point = &insertion_point->children_[path.filename().string()];
+      insertion_point->file_ = &entry;
+    }
   }
 }
 
