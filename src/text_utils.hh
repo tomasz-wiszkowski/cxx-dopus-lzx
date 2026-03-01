@@ -6,7 +6,7 @@
 #include <string_view>
 #include <vector>
 
-/// @brief Convert a latin1 string to UTF-8
+/// @brief Convert a latin1 string to wstring
 /// @param latin1 Input string in latin1 encoding
 /// @return widestring in UTF-16 encoding
 std::wstring latin1_to_wstring(std::string_view latin1);

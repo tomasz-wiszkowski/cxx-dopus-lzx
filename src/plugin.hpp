@@ -47,11 +47,11 @@ class Plugin {
     DirEnt& operator=(const DirEnt&) = delete;
 
     std::map<std::string, DirEnt> children_;
-    LzxEntry* file_{};
+    bool is_file_{};
+    LzxEntry* entry_{};
   };
 
  private:
-
   using EntryType = void*;
   HANDLE mAbortEvent{};
   std::filesystem::path mPath;
@@ -75,10 +75,10 @@ class Plugin {
 
   /// @brief Retrieves VFS file data header for a given directory entry.
   /// @param name The name of the entry.
-  /// @param entry The directory entry.
+  /// @param item The directory entry.
   /// @param heap Handle to the heap for memory allocation.
   /// @return Pointer to the allocated VFSFILEDATAHEADER.
-  LPVFSFILEDATAHEADER GetVFSforEntry(const std::string& name, const DirEnt& entry, HANDLE heap);
+  LPVFSFILEDATAHEADER GetVFSforEntry(const std::string& name, const DirEnt& item, HANDLE heap);
 
   /// @brief Populates WIN32_FIND_DATAW for a given directory entry.
   /// @param name The name of the entry.
