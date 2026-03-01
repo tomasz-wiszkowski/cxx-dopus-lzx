@@ -19,21 +19,16 @@ std::wstring latin1_to_wstring(std::string_view latin1) {
 }
 
 std::wstring utf8_to_wstring(std::string_view utf8) {
-    if (utf8.empty()) return {};
+  if (utf8.empty())
+    return {};
 
-    int size = MultiByteToWideChar(
-        CP_UTF8, 0,
-        utf8.data(), utf8.size(),
-        nullptr, 0);
+  int size = MultiByteToWideChar(CP_UTF8, 0, utf8.data(), utf8.size(), nullptr, 0);
 
-    std::wstring result(size, 0);
+  std::wstring result(size, 0);
 
-    MultiByteToWideChar(
-        CP_UTF8, 0,
-        utf8.data(), utf8.size(),
-        result.data(), size);
+  MultiByteToWideChar(CP_UTF8, 0, utf8.data(), utf8.size(), result.data(), size);
 
-    return result;
+  return result;
 }
 
 std::string wstring_to_latin1(std::wstring_view wide) {
@@ -67,4 +62,31 @@ bool is_subpath(const std::filesystem::path& base, const std::filesystem::path& 
   auto n = node.lexically_normal();
 
   return std::mismatch(b.begin(), b.end(), n.begin(), n.end()).first == b.end();
+}
+
+std::optional<std::filesystem::path> get_subpath(const std::filesystem::path& base, const std::filesystem::path& node) {
+  auto b = base.lexically_normal();
+  auto n = node.lexically_normal();
+
+  // Somehow `std::filesystem::relative` keeps throwing here, so we'll build the relative path manually.
+  // Remove the common prefix of base from node, if it exists. If base is not a prefix of node, return nullopt.
+  auto ib = b.begin();
+  auto in = n.begin();
+  while (ib != b.end() && in != n.end() && *ib == *in) {
+    ++ib;
+    ++in;
+  }
+
+  if (ib != b.end()) {
+    // base is not a prefix of node
+    return std::nullopt;
+  }
+
+  std::filesystem::path result;
+  while (in != n.end()) {
+    result /= *in;
+    ++in;
+  }
+
+  return result;
 }

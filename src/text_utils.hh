@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -29,3 +30,9 @@ std::filesystem::path sanitize(std::filesystem::path in);
 /// @param base The base path (e.g. namespace).
 /// @param node The node path to check.
 bool is_subpath(const std::filesystem::path& base, const std::filesystem::path& node);
+
+/// @brief If `node` is a subpath of `base`, return the relative path from `base` to `node`. Otherwise, return
+/// std::nullopt.
+/// @param base The base path (e.g. namespace).
+/// @param node The node path to check.
+std::optional<std::filesystem::path> get_subpath(const std::filesystem::path& base, const std::filesystem::path& node);

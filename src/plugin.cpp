@@ -119,9 +119,10 @@ std::optional<std::filesystem::path> Plugin::LoadFile(std::filesystem::path path
   path = sanitize(std::move(path));
   SetError(0);
 
-  if (!mPath.empty() && is_subpath(mPath, path)) {
-    // Path is already loaded, no need to check again.
-    return std::filesystem::relative(path, mPath);
+  if (!mPath.empty()) {
+    auto maybe_subpath = get_subpath(mPath, path);
+    if (maybe_subpath)
+      return maybe_subpath;
   }
 
   // Loading new file. Should we cache this?
