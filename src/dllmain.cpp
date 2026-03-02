@@ -56,7 +56,7 @@ __declspec(dllexport) PluginFile* WINAPI VFS_CreateFileW(Plugin* plugin,
                                                          DWORD dwFileAttr,
                                                          DWORD dwFlags,
                                                          LPFILETIME lpFT) {
-  return plugin->OpenFile(lpszPath, dwMode == GENERIC_WRITE);
+  return plugin->OpenFile(Path(lpszPath), dwMode == GENERIC_WRITE);
 }
 
 __declspec(dllexport) bool WINAPI VFS_ReadFile(Plugin* plugin,
@@ -82,7 +82,7 @@ __declspec(dllexport) BOOL WINAPI VFS_GetFileAttrW(Plugin* plugin,
                                                    LPVFSFUNCDATA lpFuncData,
                                                    LPTSTR lpszPath,
                                                    LPDWORD lpdwAttr) {
-  return plugin->GetFileAttr(lpszPath, lpdwAttr);
+  return plugin->GetFileAttr(Path(lpszPath), lpdwAttr);
 }
 
 __declspec(dllexport) BOOL WINAPI
@@ -122,7 +122,7 @@ __declspec(dllexport) BOOL WINAPI VFS_GetFileSizeW(Plugin* plugin,
     *piFileSize = file->file_ ? file->file_->unpack_size() : 0;
     return true;
   }
-  return plugin->GetFileSize(lpszPath, file, piFileSize);
+  return plugin->GetFileSize(Path(lpszPath), file, piFileSize);
 }
 
 __declspec(dllexport) BOOL WINAPI
@@ -163,7 +163,7 @@ __declspec(dllexport) UINT WINAPI VFS_BatchOperationW(Plugin* plugin,
                                                       LPVFSFUNCDATA lpVFSData,
                                                       LPWSTR lpszPath,
                                                       LPVFSBATCHDATAW lpBatchData) {
-  return plugin->BatchOperation(lpszPath, lpBatchData);
+  return plugin->BatchOperation(Path(lpszPath), lpBatchData);
 }
 
 __declspec(dllexport) bool VFS_PropGetW(Plugin* plugin,
@@ -185,7 +185,7 @@ __declspec(dllexport) bool VFS_GetFreeDiskSpaceW(Plugin* plugin,
                                                  unsigned __int64* piFreeBytesAvailable,
                                                  unsigned __int64* piTotalBytes,
                                                  unsigned __int64* piTotalFreeBytes) {
-  if (!plugin->LoadFile(lpszPath))
+  if (!plugin->LoadFile(Path(lpszPath)))
     return false;
   if (piFreeBytesAvailable)
     *piFreeBytesAvailable = plugin->GetAvailableSize();
@@ -202,7 +202,7 @@ __declspec(dllexport) PluginFindData* WINAPI VFS_FindFirstFileW(Plugin* plugin,
                                                                 LPWSTR lpszPath,
                                                                 LPWIN32_FIND_DATA lpwfdData,
                                                                 HANDLE hAbortEvent) {
-  return plugin->FindFirst(lpszPath, lpwfdData, hAbortEvent);
+  return plugin->FindFirst(Path(lpszPath), lpwfdData, hAbortEvent);
 }
 
 __declspec(dllexport) BOOL WINAPI VFS_FindNextFileW(Plugin* plugin,
@@ -220,7 +220,7 @@ __declspec(dllexport) BOOL WINAPI VFS_ExtractFilesW(Plugin* plugin,
                                                     LPVFSFUNCDATA lpFuncData,
                                                     LPVFSEXTRACTFILESDATAW lpExtractData) {
   return plugin->ExtractEntries(lpFuncData, dopus::wstring_view_span(lpExtractData->lpszFiles),
-                                lpExtractData->lpszDestPath);
+                                Path(lpExtractData->lpszDestPath));
 }
 
 __declspec(dllexport) bool VFS_USBSafe(LPOPUSUSBSAFEDATA pUSBSafeData) {
@@ -235,7 +235,7 @@ __declspec(dllexport) void VFS_Uninit() {}
 
 __declspec(dllexport) LPVFSFILEDATAHEADER WINAPI
 VFS_GetFileInformationW(Plugin* plugin, LPVFSFUNCDATA lpVFSData, LPWSTR lpszPath, HANDLE hHeap, DWORD dwFlags) {
-  return plugin->GetfileInformation(lpszPath, hHeap);
+  return plugin->GetfileInformation(Path(lpszPath), hHeap);
 }
 
 }  // extern "C"

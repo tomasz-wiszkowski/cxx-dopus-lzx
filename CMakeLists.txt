@@ -49,10 +49,13 @@ FetchContent_Declare(
     GIT_SHALLOW    TRUE
 )
 
+# UnLZX overrides...
 set(BUILD_TESTS OFF)
 set(BUILD_EXECUTABLE OFF)
 
 FetchContent_MakeAvailable(unlzx)
+
+enable_testing()
 
 # Add subdirectories
 # add_subdirectory(external/dependency EXCLUDE_FROM_ALL)

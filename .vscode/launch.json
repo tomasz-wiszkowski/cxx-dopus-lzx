@@ -14,12 +14,29 @@
         {
             "name": "Launch DOpus",
             "request": "launch",
-            "type":"cppvsdbg",
+            "type": "cppvsdbg",
             "program": "C:\\Program Files\\GPSoftware\\Directory Opus\\dopus.exe",
             "args": [],
             "cwd": "C:\\Program Files\\GPSoftware\\Directory Opus",
             "stopAtEntry": false,
             "environment": []
+        },
+        {
+            "name": "Debug Tests (Ninja)",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/ninja-x64-debug/src/OpusLZX_test.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                {
+                    "name": "PATH",
+                    "value": "${env:PATH}"
+                }
+            ],
+            "console": "internalConsole",
+            "preLaunchTask": "CMake: build tests (ninja)"
         }
     ]
 }

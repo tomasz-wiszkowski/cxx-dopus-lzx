@@ -1,6 +1,7 @@
 #include "text_utils.hh"
 
 #include <windows.h>
+#include <algorithm>
 
 std::wstring latin1_to_wstring(std::string_view latin1) {
   int wide_len = MultiByteToWideChar(28591,  // ISO-8859-1 code page
@@ -49,44 +50,15 @@ std::string wstring_to_latin1(std::wstring_view wide) {
   return latin1;
 }
 
-std::filesystem::path sanitize(std::filesystem::path in) {
-  // Remove trailing `/`
-  if (!in.has_filename())
-    in = in.parent_path();
-  // Convert all the `.` and `..` to an actual target path.
-  return in.lexically_normal();
-}
+std::string wstring_to_utf8(std::wstring_view wide) {
+  if (wide.empty())
+    return {};
 
-bool is_subpath(const std::filesystem::path& base, const std::filesystem::path& node) {
-  auto b = base.lexically_normal();
-  auto n = node.lexically_normal();
+  int size = WideCharToMultiByte(CP_UTF8, 0, wide.data(), wide.size(), nullptr, 0, nullptr, nullptr);
 
-  return std::mismatch(b.begin(), b.end(), n.begin(), n.end()).first == b.end();
-}
+  std::string result(size, 0);
 
-std::optional<std::filesystem::path> get_subpath(const std::filesystem::path& base, const std::filesystem::path& node) {
-  auto b = base.lexically_normal();
-  auto n = node.lexically_normal();
-
-  // Somehow `std::filesystem::relative` keeps throwing here, so we'll build the relative path manually.
-  // Remove the common prefix of base from node, if it exists. If base is not a prefix of node, return nullopt.
-  auto ib = b.begin();
-  auto in = n.begin();
-  while (ib != b.end() && in != n.end() && *ib == *in) {
-    ++ib;
-    ++in;
-  }
-
-  if (ib != b.end()) {
-    // base is not a prefix of node
-    return std::nullopt;
-  }
-
-  std::filesystem::path result;
-  while (in != n.end()) {
-    result /= *in;
-    ++in;
-  }
+  WideCharToMultiByte(CP_UTF8, 0, wide.data(), wide.size(), result.data(), size, nullptr, nullptr);
 
   return result;
 }

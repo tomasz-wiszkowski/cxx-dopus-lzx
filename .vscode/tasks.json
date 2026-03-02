@@ -26,6 +26,18 @@
 			"detail": "CMake template build task"
 		},
 		{
+			"type": "cmake",
+			"label": "CMake: build tests (ninja)",
+			"command": "build",
+			"targets": [
+				"OpusLZX_test"
+			],
+			"preset": "ninja-x64-debug",
+			"group": "build",
+			"problemMatcher": [],
+			"detail": "Build tests using Ninja preset"
+		},
+		{
 			"label": "Deploy and Run (Debug)",
 			"type": "shell",
 			"command": "taskkill /F /IM dopus.exe 2>$null; Copy-Item -Path \\\"${workspaceFolder}/bin/Debug/OpusLZX.dll\\\" -Destination \\\"C:/Program Files/GPSoftware/Directory Opus/VFSPlugins/OpusLZX.dll\\\" -Force; Start-Process \\\"C:/Program Files/GPSoftware/Directory Opus/dopus.exe\\\"",

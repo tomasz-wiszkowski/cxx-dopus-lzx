@@ -1,11 +1,12 @@
 #pragma once
 
-#include <filesystem>
 #include <optional>
 #include <set>
 
 #include "dopus_wstring_view_span.hh"
+#include "path.hh"
 #include "unlzx.hh"
+
 
 /// @brief Guard object to set and restore fields.
 template <typename T>
@@ -46,7 +47,7 @@ class Plugin {
     DirEnt(const DirEnt&) = delete;
     DirEnt& operator=(const DirEnt&) = delete;
 
-    std::map<std::string, DirEnt> children_;
+    std::map<std::wstring, DirEnt, std::less<>> children_;
     bool is_file_{};
     LzxEntry* entry_{};
   };
@@ -54,7 +55,7 @@ class Plugin {
  private:
   using EntryType = void*;
   HANDLE mAbortEvent{};
-  std::filesystem::path mPath;
+  Path mPath;
   std::shared_ptr<Unlzx> mArchive;
   std::shared_ptr<std::map<std::string, LzxEntry>> mFlatMap;
   std::shared_ptr<DirEnt> mRoot;
@@ -69,7 +70,7 @@ class Plugin {
   /// @brief Navigate to a specific (absolute) path within the archive.
   /// @param dir The absolute path to navigate to.
   /// @return true if successful, false otherwise.
-  bool ChangeDir(std::filesystem::path dir);
+  bool ChangeDir(Path dir);
 
   // --- Entry Information ---
 
@@ -78,13 +79,13 @@ class Plugin {
   /// @param item The directory entry.
   /// @param heap Handle to the heap for memory allocation.
   /// @return Pointer to the allocated VFSFILEDATAHEADER.
-  LPVFSFILEDATAHEADER GetVFSforEntry(const std::string& name, const DirEnt& item, HANDLE heap);
+  LPVFSFILEDATAHEADER GetVFSforEntry(std::wstring_view name, const DirEnt& item, HANDLE heap);
 
   /// @brief Populates WIN32_FIND_DATAW for a given directory entry.
   /// @param name The name of the entry.
   /// @param entry The directory entry.
   /// @param data Pointer to the WIN32_FIND_DATAW structure to populate.
-  void GetWfdForEntry(const std::string& name, const DirEnt& entry, LPWIN32_FIND_DATAW data);
+  void GetWfdForEntry(std::wstring_view name, const DirEnt& entry, LPWIN32_FIND_DATAW data);
 
   /// @brief Retrieves the file time for a given entry.
   /// @param entry The entry to retrieve the time for.
@@ -112,7 +113,7 @@ class Plugin {
   /// @brief Loads an LZX archive from the specified path.
   /// @param pAfPath Path to the archive file.
   /// @return Optional path to the loaded archive if successful.
-  std::optional<std::filesystem::path> LoadFile(std::filesystem::path path);
+  std::optional<Path> LoadFile(Path path);
 
   /// @brief Returns the available size in the archive.
   /// @return The available size in bytes.
@@ -139,7 +140,7 @@ class Plugin {
   /// @param path The path of the file to open.
   /// @param for_writing true if opening for writing, false for reading.
   /// @return Pointer to the opened PluginFile.
-  PluginFile* OpenFile(std::filesystem::path path, bool for_writing);
+  PluginFile* OpenFile(Path path, bool for_writing);
 
   /// @brief Reads data from an open file.
   /// @param pFile Pointer to the open file.
@@ -159,7 +160,7 @@ class Plugin {
   /// @param lpwfdData Pointer to WIN32_FIND_DATA structure to receive the first file's data.
   /// @param hAbortEvent Handle to an abort event.
   /// @return Pointer to a PluginFindData handle.
-  PluginFindData* FindFirst(std::filesystem::path path, LPWIN32_FIND_DATA lpwfdData, HANDLE hAbortEvent);
+  PluginFindData* FindFirst(Path path, LPWIN32_FIND_DATA lpwfdData, HANDLE hAbortEvent);
 
   /// @brief Continues a file enumeration.
   /// @param lpRAF Pointer to the PluginFindData handle.
@@ -177,20 +178,20 @@ class Plugin {
   /// @param path The path to the file.
   /// @param heap Handle to the heap for memory allocation.
   /// @return Pointer to the allocated VFSFILEDATAHEADER.
-  LPVFSFILEDATAHEADER GetfileInformation(std::filesystem::path path, HANDLE heap);
+  LPVFSFILEDATAHEADER GetfileInformation(Path path, HANDLE heap);
 
   /// @brief Gets the size of a file.
   /// @param path The path to the file.
   /// @param file Optional pointer to an already opened PluginFile.
   /// @param piFileSize Pointer to receive the file size.
   /// @return true if successful, false otherwise.
-  bool GetFileSize(std::filesystem::path path, PluginFile* file, uint64_t* piFileSize);
+  bool GetFileSize(Path path, PluginFile* file, uint64_t* piFileSize);
 
   /// @brief Gets the attributes of a file.
   /// @param path The path to the file.
   /// @param pAttr Pointer to receive the attributes.
   /// @return true if successful, false otherwise.
-  bool GetFileAttr(std::filesystem::path path, LPDWORD pAttr);
+  bool GetFileAttr(Path path, LPDWORD pAttr);
 
   // --- Extraction ---
 
@@ -199,28 +200,28 @@ class Plugin {
   /// @param source_path Path within the archive to extract.
   /// @param target_path Destination path on disk.
   /// @return true if successful, false otherwise.
-  bool Extract(LPVOID func_data, std::filesystem::path source_path, std::filesystem::path target_path);
+  bool Extract(LPVOID func_data, Path source_path, Path target_path);
 
   /// @brief Extracts a specific file entry.
   /// @param func_data Plugin-specific function data.
   /// @param pEntry The entry to extract.
   /// @param target_path Destination path on disk.
   /// @return true if successful, false otherwise.
-  bool ExtractFile(LPVOID func_data, const DirEnt& pEntry, std::filesystem::path target_path);
+  bool ExtractFile(LPVOID func_data, const DirEnt& pEntry, Path target_path);
 
   /// @brief Extracts all files in a path.
   /// @param func_data Plugin-specific function data.
   /// @param source_path Directory path within the archive to extract.
   /// @param target_path Destination path on disk.
   /// @return true if successful, false otherwise.
-  bool ExtractPath(LPVOID func_data, std::filesystem::path source_path, std::filesystem::path target_path);
+  bool ExtractPath(LPVOID func_data, Path source_path, Path target_path);
 
   /// @brief Extracts multiple specific entries.
   /// @param func_data Plugin-specific function data.
   /// @param entry_names Span of entry names to extract.
   /// @param target_path Destination directory path on disk.
   /// @return true if successful, false otherwise.
-  bool ExtractEntries(LPVOID func_data, dopus::wstring_view_span entry_names, std::filesystem::path target_path);
+  bool ExtractEntries(LPVOID func_data, dopus::wstring_view_span entry_names, Path target_path);
 
   // --- Plugin API Specifics ---
 
@@ -233,7 +234,7 @@ class Plugin {
   /// @param lpszPath The path for the operation.
   /// @param lpBatchData Pointer to the VFSBATCHDATAW structure.
   /// @return Status code of the batch operation.
-  uint32_t BatchOperation(std::filesystem::path lpszPath, LPVFSBATCHDATAW lpBatchData);
+  uint32_t BatchOperation(Path lpszPath, LPVFSBATCHDATAW lpBatchData);
 
   /// @brief Retrieves a plugin property.
   /// @param propId The ID of the property to retrieve.

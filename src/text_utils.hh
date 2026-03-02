@@ -1,6 +1,5 @@
 #pragma once
 
-#include <filesystem>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -21,18 +20,7 @@ std::wstring utf8_to_wstring(std::string_view utf8);
 /// @return latin1 encoded string
 std::string wstring_to_latin1(std::wstring_view wide);
 
-/// @brief Clean up input paths ensuring that it always contains the "filename" stem, even if pointing to a directory.
-/// @param in The path to sanitize.
-/// @return sanitized path.
-std::filesystem::path sanitize(std::filesystem::path in);
-
-/// @brief Returns whether `node` path points to a root or a sub-element of the `base` path.
-/// @param base The base path (e.g. namespace).
-/// @param node The node path to check.
-bool is_subpath(const std::filesystem::path& base, const std::filesystem::path& node);
-
-/// @brief If `node` is a subpath of `base`, return the relative path from `base` to `node`. Otherwise, return
-/// std::nullopt.
-/// @param base The base path (e.g. namespace).
-/// @param node The node path to check.
-std::optional<std::filesystem::path> get_subpath(const std::filesystem::path& base, const std::filesystem::path& node);
+/// @brief Convert a wide string to UTF-8 encoding
+/// @param wide Input string in wide character encoding (UTF-16 on Windows)
+/// @return UTF-8 encoded string
+std::string wstring_to_utf8(std::wstring_view wide);

@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4
+
+- Removed `std::filesystem` dependency due to limited control over thrown 
+  exceptions.
+
 ## v0.3
 
 - Support empty directory entries

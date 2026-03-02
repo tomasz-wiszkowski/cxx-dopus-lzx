@@ -8,5 +8,10 @@
   "C_Cpp.codeAnalysis.runAutomatically": true,
   "editor.tabSize": 2,
   "editor.formatOnSave": true,
-  "clang-tidy.fixOnSave": true
+  "clang-tidy.fixOnSave": true,
+  "cmake.debugConfig": {
+    "type": "cppvsdbg",
+    "console": "internalConsole"
+  },
+  "cmake.testFinishedNotification": true
 }

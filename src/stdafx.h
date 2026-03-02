@@ -16,7 +16,6 @@
 #include <iterator>
 #include <list>
 #include <memory>
-#include <regex>
 #include <span>
 #include <sstream>
 #include <string>

@@ -120,7 +120,8 @@
             "configurePreset": "ninja-x64-debug",
             "configuration": "Debug",
             "targets": [
-                "OpusLZX"
+                "OpusLZX",
+                "OpusLZX_test"
             ]
         },
         {
@@ -149,6 +150,17 @@
             "targets": [
                 "OpusLZX"
             ]
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "ninja-x64-debug",
+            "displayName": "Ninja x64 Debug",
+            "configurePreset": "ninja-x64-debug",
+            "configuration": "Debug",
+            "output": {
+                "outputOnFailure": true
+            }
         }
     ]
 }
