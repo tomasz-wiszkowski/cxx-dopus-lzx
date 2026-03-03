@@ -18,15 +18,62 @@ void Path::normalize_separators() {
 }
 
 Path Path::from_foreign_path(std::wstring foreign_path) {
-  // Replace all `\\` with unicode equivalent to avoid fs conflicts.
-  std::replace(foreign_path.begin(), foreign_path.end(), L'\\', L'\uFF3C');
-
-  std::map<std::wstring_view, std::wstring_view> replacements = {
-      {L".", L"\uFF0E"},
-      {L"..", L"\uFF0E\uFF0E"},
+  std::map<std::wstring_view, std::wstring_view> reserved_characters = {
+      {L"\\", L"\uFF3C"},  // ＼
+      {L"?", L"\uFF1F"},   // ？
+      {L"*", L"\uFF0A"},   // ＊
+      {L"|", L"\uFF5C"},   // ｜
+      {L"\"", L"\uFF02"},  // ＂
+      {L"<", L"\uFF1C"},   // ＜
+      {L">", L"\uFF1E"},   // ＞
+      {L":", L"\uFF1A"},   // ：
   };
 
-  for (const auto& [from, to] : replacements) {
+  for (const auto& [from, to] : reserved_characters) {
+    size_t pos = 0;
+    while ((pos = foreign_path.find(from, pos)) != std::wstring::npos) {
+      foreign_path.replace(pos, from.length(), to);
+      pos += to.length();
+    }
+  }
+
+  std::map<std::wstring_view, std::wstring_view> reserved_names = {
+      {L".", L"\uFF0E"},
+      {L"..", L"\uFF0E\uFF0E"},
+      // Names known to be reserved in Windows, even with extensions. See
+      // https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file
+      {L"CON", L"CON_"},
+      {L"PRN", L"PRN_"},
+      {L"AUX", L"AUX_"},
+      {L"NUL", L"NUL_"},
+      {L"COM1", L"COM1_"},
+      {L"COM2", L"COM2_"},
+      {L"COM3", L"COM3_"},
+      {L"COM4", L"COM4_"},
+      {L"COM5", L"COM5_"},
+      {L"COM6", L"COM6_"},
+      {L"COM7", L"COM7_"},
+      {L"COM8", L"COM8_"},
+      {L"COM9", L"COM9_"},
+      {L"LPT1", L"LPT1_"},
+      {L"LPT2", L"LPT2_"},
+      {L"LPT3", L"LPT3_"},
+      {L"LPT4", L"LPT4_"},
+      {L"LPT5", L"LPT5_"},
+      {L"LPT6", L"LPT6_"},
+      {L"LPT7", L"LPT7_"},
+      {L"LPT8", L"LPT8_"},
+      {L"LPT9", L"LPT9_"},
+      // Some more exotic ones
+      {L"COM¹", L"COM¹_"},
+      {L"COM²", L"COM²_"},
+      {L"COM³", L"COM³_"},
+      {L"LPT¹", L"LPT¹_"},
+      {L"LPT²", L"LPT²_"},
+      {L"LPT³", L"LPT³_"},
+  };
+
+  for (const auto& [from, to] : reserved_names) {
     size_t pos = 0;
     while ((pos = foreign_path.find(from, pos)) != std::wstring::npos) {
       // Only replace if
