@@ -4,7 +4,7 @@
 #include <memory>
 
 #include "dopus_wstring_view_span.hh"
-#include "stdafx.h"
+#include "stdafx.hh"
 #include "text_utils.hh"
 
 // unlzx

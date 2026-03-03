@@ -1,7 +1,7 @@
 # Source files
 set(PLUGIN_SOURCES
-    dllmain.cpp
-    plugin.cpp
+    dllmain.cc
+    plugin.cc
     text_utils.cc
     path.cc
 )
@@ -9,8 +9,8 @@ set(PLUGIN_SOURCES
 # Header files
 set(PLUGIN_HEADERS
     dopus_wstring_view_span.hh
-    plugin.hpp
-    stdafx.h
+    plugin.hh
+    stdafx.hh
     text_utils.hh
     path.hh
 )

@@ -1,7 +1,7 @@
 #include <strsafe.h>
 
 #include "dopus_wstring_view_span.hh"
-#include "stdafx.h"
+#include "stdafx.hh"
 
 static constexpr GUID PluginGUID{0x4bcae8da, 0xd598, 0x4a67, {0xa0, 0x45, 0xbb, 0xbb, 0xb8, 0xaf, 0x58, 0xb0}};
 HINSTANCE g_module_instance{};

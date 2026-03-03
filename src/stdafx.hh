@@ -1,7 +1,6 @@
-// stdafx.h : include file for standard system include files,
+// stdafx.hh : include file for standard system include files,
 // or project specific include files that are used frequently, but
 // are changed infrequently
-//
 
 #pragma once
 
@@ -25,4 +24,4 @@ extern "C" {
 #include "plugin support.h"
 #include "vfs plugins.h"
 }
-#include "plugin.hpp"
+#include "plugin.hh"
