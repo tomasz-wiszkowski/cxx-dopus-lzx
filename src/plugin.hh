@@ -18,7 +18,6 @@ extern "C" {
 #include "vfs plugins.h"
 }
 
-
 /// @brief Guard object to set and restore fields.
 template <typename T>
 class Guard {
@@ -185,11 +184,15 @@ class Plugin {
 
   // --- File Information & Attributes ---
 
+  /// @brief Retrieves VFS-supported custom columns for the plugin.
+  /// @return Pointer to an array of VFS custom column definitions, or nullptr if none.
+  const DOpusVFSCustomColumnW* GetCustomColumns() const;
+
   /// @brief Retrieves information for a file at the given path.
   /// @param path The path to the file.
   /// @param heap Handle to the heap for memory allocation.
   /// @return Pointer to the allocated VFSFILEDATAHEADER.
-  LPVFSFILEDATAHEADER GetfileInformation(Path path, HANDLE heap);
+  LPVFSFILEDATAHEADER GetFileInformation(Path path, HANDLE heap);
 
   /// @brief Gets the size of a file.
   /// @param path The path to the file.

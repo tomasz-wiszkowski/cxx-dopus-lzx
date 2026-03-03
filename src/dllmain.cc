@@ -46,6 +46,10 @@ __declspec(dllexport) void WINAPI VFS_Destroy(Plugin* plugin) {
   delete plugin;
 }
 
+__declspec(dllexport) const DOpusVFSCustomColumnW* VFS_GetCustomColumnsW(Plugin* plugin) {
+  return plugin->GetCustomColumns();
+}
+
 __declspec(dllexport) BOOL WINAPI VFS_CreateDirectoryW(Plugin* plugin,
                                                        LPVFSFUNCDATA lpFuncData,
                                                        LPTSTR lpszPath,
@@ -239,7 +243,7 @@ __declspec(dllexport) void VFS_Uninit() {}
 
 __declspec(dllexport) LPVFSFILEDATAHEADER WINAPI
 VFS_GetFileInformationW(Plugin* plugin, LPVFSFUNCDATA lpVFSData, LPWSTR lpszPath, HANDLE hHeap, DWORD dwFlags) {
-  return plugin->GetfileInformation(Path(lpszPath), hHeap);
+  return plugin->GetFileInformation(Path(lpszPath), hHeap);
 }
 
 }  // extern "C"

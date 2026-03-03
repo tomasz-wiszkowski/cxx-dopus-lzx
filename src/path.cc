@@ -149,7 +149,7 @@ std::optional<Path> Path::relative_to(const Path& base) const {
   }
 
   // PathRelativePathToW will return ".." if it's not a subpath.
-  if (wcsncmp(buffer, L"..", 2) == 0)
+  if (wcsncmp(buffer, L"..\\", 3) == 0)
     return {};
 
   // It may also return ".\" for the path itself.
