@@ -1,11 +1,22 @@
 #pragma once
 
+#include <windows.h>
+
+#include <cstdint>
+#include <map>
+#include <memory>
 #include <optional>
-#include <set>
+#include <span>
+#include <string>
+#include <string_view>
 
 #include "dopus_wstring_view_span.hh"
 #include "path.hh"
 #include "unlzx.hh"
+
+extern "C" {
+#include "vfs plugins.h"
+}
 
 
 /// @brief Guard object to set and restore fields.

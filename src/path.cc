@@ -9,8 +9,6 @@
 #include <algorithm>
 #include <map>
 
-#include "text_utils.hh"
-
 void Path::normalize_separators() {
   while (!path_.empty() && path_.back() == L'\\') {
     path_.pop_back();

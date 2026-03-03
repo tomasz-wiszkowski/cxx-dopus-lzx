@@ -1,7 +1,6 @@
 #include "text_utils.hh"
 
 #include <windows.h>
-#include <algorithm>
 
 std::wstring latin1_to_wstring(std::string_view latin1) {
   int wide_len = MultiByteToWideChar(28591,  // ISO-8859-1 code page

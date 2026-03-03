@@ -1,9 +1,7 @@
 #pragma once
 
-#include <optional>
 #include <string>
 #include <string_view>
-#include <vector>
 
 /// @brief Convert a latin1 string to wstring
 /// @param latin1 Input string in latin1 encoding

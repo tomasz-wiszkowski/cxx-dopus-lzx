@@ -1,11 +1,16 @@
 #include <strsafe.h>
 
 #include <cwctype>
-#include <memory>
+#include <algorithm>
+#include <fstream>
+#include <vector>
 
-#include "dopus_wstring_view_span.hh"
-#include "stdafx.hh"
+#include "plugin.hh"
 #include "text_utils.hh"
+
+extern "C" {
+#include "plugin support.h"
+}
 
 // unlzx
 #include "error.hh"

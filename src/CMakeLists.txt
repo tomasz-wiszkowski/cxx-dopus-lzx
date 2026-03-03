@@ -10,7 +10,6 @@ set(PLUGIN_SOURCES
 set(PLUGIN_HEADERS
     dopus_wstring_view_span.hh
     plugin.hh
-    stdafx.hh
     text_utils.hh
     path.hh
 )
