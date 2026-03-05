@@ -13,6 +13,7 @@
 #include "dopus_wstring_view_span.hh"
 #include "path.hh"
 #include "unlzx.hh"
+#include "custom_columns.hh"
 
 extern "C" {
 #include "vfs plugins.h"
@@ -63,7 +64,9 @@ class Plugin {
   };
 
  private:
-  using EntryType = void*;
+  /// @brief The custom column manager for this plugin.
+  static inline std::unique_ptr<CustomColumnManager<DirEnt>> mColumnManager;
+
   HANDLE mAbortEvent{};
   Path mPath;
   std::shared_ptr<Unlzx> mArchive;
@@ -100,7 +103,7 @@ class Plugin {
   /// @brief Retrieves the file time for a given entry.
   /// @param entry The entry to retrieve the time for.
   /// @return The file time.
-  FILETIME GetFileTime(const EntryType& entry);
+  FILETIME GetFileTime(const DirEnt& entry);
 
   // --- State Management & Helpers ---
 
@@ -119,6 +122,9 @@ class Plugin {
 
  public:
   // --- Initialization & Archive Info ---
+
+  /// @brief Initializes custom columns for the plugin.
+  static void InitCustomColumns();
 
   /// @brief Loads an LZX archive from the specified path.
   /// @param pAfPath Path to the archive file.

@@ -236,6 +236,7 @@ __declspec(dllexport) bool VFS_USBSafe(LPOPUSUSBSAFEDATA pUSBSafeData) {
 }
 
 __declspec(dllexport) bool VFS_Init(LPVFSINITDATA pInitData) {
+  Plugin::InitCustomColumns();
   return true;
 }
 

@@ -12,6 +12,7 @@ set(PLUGIN_HEADERS
     plugin.hh
     text_utils.hh
     path.hh
+    custom_columns.hh
 )
 
 # Create shared library (DLL)

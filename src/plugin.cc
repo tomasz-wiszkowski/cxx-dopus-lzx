@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "text_utils.hh"
+#include "custom_columns.hh"
 
 extern "C" {
 #include "plugin support.h"
@@ -21,138 +22,6 @@ extern "C" {
 DOpusPluginHelperFunction DOpus;
 
 namespace {
-
-class CustomColumn {
- public:
-  using ValueFunc = std::function<size_t(const Plugin::DirEnt&, wchar_t*, size_t)>;
-
-  /// @brief Instantiates a CustomColumn with the given parameters.
-  /// @param id The next available column ID for this column.
-  /// @param name The display name of the column.
-  /// @param key The key used to store the column value in VFSFILEDATA.
-  /// @param flags The display flags for the column (e.g. alignment).
-  /// @param value_func The function to call to retrieve the column value for a given directory entry.
-  CustomColumn(int id, const wchar_t* name, const wchar_t* key, DWORD flags, ValueFunc value_func)
-      : column_info_{.cbSize = sizeof(VFSCUSTOMCOLUMN),
-                     .lpNext = nullptr,
-                     .lpszLabel = const_cast<wchar_t*>(name),
-                     .lpszKey = const_cast<wchar_t*>(key),
-                     .dwFlags = flags,
-                     .iID = id},
-                     value_func_(std::move(value_func))
-  {}
-
-  void link_column(const CustomColumn* next) {
-    column_info_.lpNext = const_cast<VFSCUSTOMCOLUMN*>(next ? &next->column_info_ : nullptr);
-  }
-
-  /// @return The column ID for this custom column.
-  int get_id() const { return column_info_.iID; }
-
-  /// @return The VFSCUSTOMCOLUMN structure for this custom column.
-  const VFSCUSTOMCOLUMN* get_info() const { return &column_info_; }
-
-  wchar_t* get_value(HANDLE heap, const Plugin::DirEnt& entry) const {
-    size_t length = value_func_(entry, nullptr, 0);
-    if (length == 0) return nullptr;
-
-    wchar_t* buffer = static_cast<wchar_t*>(HeapAlloc(heap, 0, (length + 1) * sizeof(wchar_t)));
-    value_func_(entry, buffer, length + 1);
-    return buffer;
-  }
-
- private:
-  VFSCUSTOMCOLUMN column_info_;
-  ValueFunc value_func_;
-};
-
-class CustomColumnManager {
-  std::vector<CustomColumn> columns_;
-  CustomColumnManager() = default;
-
- public:
-  /// @brief Retrieves the singleton instance of the CustomColumnManager.
-  static const CustomColumnManager& instance() {
-    static CustomColumnManager* manager{};
-    if (manager) return *manager;
-
-    manager = new CustomColumnManager();
-    manager->add_custom_column(L"Packed Size", L"lzx_packed_size", VFSCCF_SIZE, [](const Plugin::DirEnt& entry, wchar_t* buffer, size_t buffer_size) -> size_t {
-      if (!entry.is_file_ || !entry.entry_ || !entry.entry_->pack_size())
-        return 0;
-      size_t size = *entry.entry_->pack_size();
-      return swprintf(buffer, buffer_size, L"%zu", size);
-    });
-
-    manager->add_custom_column(L"Protection Bits", L"lzx_protection_bits", VFSCCF_CENTERJUSTIFY, [](const Plugin::DirEnt& entry, wchar_t* buffer, size_t buffer_size) -> size_t {
-      if (!entry.is_file_ || !entry.entry_)
-        return 0;
-      auto bits = entry.entry_->attributes();
-      return swprintf(buffer, buffer_size, L"%c%c%c%c%c%c%c%c",
-      bits.hidden ? 'h' : '-',
-      bits.script ? 's' : '-',
-      bits.pure ? 'p' : '-',
-      bits.archived ? 'a' : '-',
-      bits.readable ? 'r' : '-',
-      bits.writable ? 'w' : '-',
-      bits.executable ? 'e' : '-',
-      bits.deletable ? 'd' : '-');
-      });
-
-    manager->link_columns();
-
-    return *manager;
-  }
-
-  /// @brief Populates the lpvfsColumnData field of a VFSFILEDATA structure with the custom column values for a given directory entry.
-  /// @param data Pointer to the VFSFILEDATA structure to populate.
-  /// @param heap Handle to the heap for memory allocation.
-  /// @param entry The directory entry to retrieve column values for.
-  void populate_custom_column_data(LPVFSFILEDATAW data, HANDLE heap, const Plugin::DirEnt& entry) const {
-    std::vector<std::pair<int /* column_id */, wchar_t* /* content */>> column_values;
-
-    for (const auto& column : columns_) {
-      wchar_t* value = column.get_value(heap, entry);
-      if (!value) continue;
-      column_values.emplace_back(column.get_id(), value);
-    }
-
-    data->iNumColumns = column_values.size();
-    data->lpvfsColumnData = nullptr;
-
-    if (column_values.empty()) return;
-
-    data->lpvfsColumnData =
-          static_cast<LPVFSFILEDATACOLUMNW>(HeapAlloc(heap, 0, column_values.size() * sizeof(VFSFILEDATACOLUMNW)));
-    for (size_t i = 0; i < column_values.size(); ++i) {
-      data->lpvfsColumnData[i].iColumnId = column_values[i].first;
-      data->lpvfsColumnData[i].lpszValue = column_values[i].second;
-    }
-  }
-
-  const VFSCUSTOMCOLUMN* get_columns() const {
-    return columns_.empty() ? nullptr : columns_[0].get_info();
-  }
-
- private:
-  /// @brief Add a custom column definition to the manager.
-  /// @param name Display name of the column.
-  /// @param key Map key for the column (used in VFSFILEDATA).
-  /// @param flags Display flags for the column (e.g. alignment).
-  /// @param value_func Method to retrieve the column value for a given directory entry.
-  void add_custom_column(const wchar_t* name, const wchar_t* key, DWORD flags, CustomColumn::ValueFunc value_func) {
-    columns_.emplace_back(static_cast<int>(columns_.size()), name, key, flags, std::move(value_func));
-  }
-
-  /// @brief Links the custom columns together by setting their lpNext pointers.
-  void link_columns() {
-    for (size_t i = 0; i < columns_.size() - 1; ++i) {
-      columns_[i].link_column(&columns_[i + 1]);
-    }
-    columns_.back().link_column(nullptr);
-  }
-
-};
 
 /// @brief  Creates a FILETIME structure representing the given UTC time components.
 std::optional<FILETIME> MakeFileTime(WORD year, WORD month, WORD day, WORD hour, WORD minute, WORD second) {
@@ -175,6 +44,32 @@ std::optional<FILETIME> MakeFileTime(WORD year, WORD month, WORD day, WORD hour,
   return ft;
 }
 }  // namespace
+
+void Plugin::InitCustomColumns() {
+  mColumnManager = std::make_unique<CustomColumnManager<DirEnt>>();
+
+  mColumnManager->add_custom_column(L"Packed Size", L"lzx_packed_size", VFSCCF_SIZE, [](const Plugin::DirEnt& entry, wchar_t* buffer, size_t buffer_size) -> size_t {
+    if (!entry.is_file_ || !entry.entry_ || !entry.entry_->pack_size())
+      return 0;
+    size_t size = *entry.entry_->pack_size();
+    return swprintf(buffer, buffer_size, L"%zu", size);
+  });
+
+  mColumnManager->add_custom_column(L"Protection Bits", L"lzx_protection_bits", VFSCCF_CENTERJUSTIFY, [](const Plugin::DirEnt& entry, wchar_t* buffer, size_t buffer_size) -> size_t {
+    if (!entry.is_file_ || !entry.entry_)
+      return 0;
+    auto bits = entry.entry_->attributes();
+    return swprintf(buffer, buffer_size, L"%c%c%c%c%c%c%c%c",
+      bits.hidden ? 'h' : '-',
+      bits.script ? 's' : '-',
+      bits.pure ? 'p' : '-',
+      bits.archived ? 'a' : '-',
+      bits.readable ? 'r' : '-',
+      bits.writable ? 'w' : '-',
+      bits.executable ? 'e' : '-',
+      bits.deletable ? 'd' : '-');
+  });
+}
 
 // --- Directory Structure & Navigation ---
 
@@ -242,7 +137,7 @@ LPVFSFILEDATAHEADER Plugin::GetVFSforEntry(std::wstring_view name, const DirEnt&
   details->lpszComment = nullptr;
   details->dwFlags = 0;
 
-  CustomColumnManager::instance().populate_custom_column_data(details, heap, item);
+  mColumnManager->populate_custom_column_data(details, heap, item);
 
   GetWfdForEntry(name, item, &details->wfdData);
 
@@ -514,7 +409,7 @@ void Plugin::FindClose(PluginFindData* pFindData) {
 
 // --- File Information & Attributes ---
 const VFSCUSTOMCOLUMN* Plugin::GetCustomColumns() const {
-  return CustomColumnManager::instance().get_columns();
+  return mColumnManager->get_columns();
 }
 
 LPVFSFILEDATAHEADER Plugin::GetFileInformation(Path path, HANDLE heap) {
