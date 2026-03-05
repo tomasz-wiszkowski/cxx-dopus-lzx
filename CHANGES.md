@@ -4,6 +4,9 @@
 
 - Removed `std::filesystem` dependency due to limited control over thrown 
   exceptions.
+- Add custom columns for packed size and protection bits.
+- Properly support Windows reserved names via foreign path substitution.
+- Code cleanup, MSVC compatibility improvements, and formatting changes.
 
 ## v0.3
 
