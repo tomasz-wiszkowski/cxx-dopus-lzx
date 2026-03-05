@@ -11,8 +11,24 @@ static constexpr GUID PluginGUID{0x4bcae8da, 0xd598, 0x4a67, {0xa0, 0x45, 0xbb, 
 HINSTANCE g_module_instance{};
 
 extern "C" {
+
+// ============================================================================
+// Plugin Initialization and Lifecycle
+// ============================================================================
+
 __declspec(dllexport) bool WINAPI DllMain(HINSTANCE hInstance, DWORD dwReason, LPVOID) {
   g_module_instance = hInstance;
+  return true;
+}
+
+__declspec(dllexport) bool VFS_Init(LPVFSINITDATA pInitData) {
+  Plugin::InitCustomColumns();
+  return true;
+}
+
+__declspec(dllexport) void VFS_Uninit() {}
+
+__declspec(dllexport) bool VFS_USBSafe(LPOPUSUSBSAFEDATA pUSBSafeData) {
   return true;
 }
 
@@ -30,10 +46,6 @@ __declspec(dllexport) bool VFS_IdentifyW(LPVFSPLUGININFOW lpVFSInfo) {
   return true;
 }
 
-__declspec(dllexport) bool VFS_ReadDirectoryW(Plugin* plugin, LPVFSFUNCDATA lpVFSData, LPVFSREADDIRDATAW lpRDD) {
-  return plugin->ReadDirectory(lpRDD);
-}
-
 __declspec(dllexport) Plugin* WINAPI VFS_Create(LPGUID pGuid) {
   return new Plugin();
 }
@@ -46,14 +58,39 @@ __declspec(dllexport) void WINAPI VFS_Destroy(Plugin* plugin) {
   delete plugin;
 }
 
+// ============================================================================
+// Directory Reading and Search
+// ============================================================================
+
+__declspec(dllexport) bool VFS_ReadDirectoryW(Plugin* plugin, LPVFSFUNCDATA lpVFSData, LPVFSREADDIRDATAW lpRDD) {
+  return plugin->ReadDirectory(lpRDD);
+}
+
+__declspec(dllexport) PluginFindData* WINAPI VFS_FindFirstFileW(
+    Plugin* plugin,
+    LPVFSFUNCDATA lpVFSData,
+    LPWSTR lpszPath,
+    LPWIN32_FIND_DATA lpwfdData,
+    HANDLE hAbortEvent) {
+  return plugin->FindFirst(Path(lpszPath), lpwfdData, hAbortEvent);
+}
+
+__declspec(dllexport) BOOL WINAPI
+VFS_FindNextFileW(Plugin* plugin, LPVFSFUNCDATA lpVFSData, PluginFindData* find_data, LPWIN32_FIND_DATA lpwfdData) {
+  return plugin->FindNext(find_data, lpwfdData);
+}
+
+__declspec(dllexport) void WINAPI VFS_FindClose(Plugin* plugin, PluginFindData* find_data) {
+  plugin->FindClose(find_data);
+}
+
 __declspec(dllexport) const DOpusVFSCustomColumnW* VFS_GetCustomColumnsW(Plugin* plugin) {
   return plugin->GetCustomColumns();
 }
 
-__declspec(dllexport) BOOL WINAPI
-VFS_CreateDirectoryW(Plugin* plugin, LPVFSFUNCDATA lpFuncData, LPTSTR lpszPath, DWORD dwFlags) {
-  return false;
-}
+// ============================================================================
+// File Operations (I/O)
+// ============================================================================
 
 __declspec(dllexport) PluginFile* WINAPI VFS_CreateFileW(
     Plugin* plugin,
@@ -87,15 +124,67 @@ __declspec(dllexport) BOOL WINAPI VFS_WriteFile(
   return false;
 }
 
+__declspec(dllexport) void WINAPI VFS_CloseFile(Plugin* plugin, LPVFSFUNCDATA lpVFSData, PluginFile* file) {
+  plugin->CloseFile(file);
+}
+
+__declspec(dllexport) BOOL WINAPI
+VFS_ExtractFilesW(Plugin* plugin, LPVFSFUNCDATA lpFuncData, LPVFSEXTRACTFILESDATAW lpExtractData) {
+  return plugin->ExtractEntries(
+      lpFuncData, dopus::wstring_view_span(lpExtractData->lpszFiles), Path(lpExtractData->lpszDestPath));
+}
+
+// ============================================================================
+// File Attributes and Metadata
+// ============================================================================
+
+__declspec(dllexport) LPVFSFILEDATAHEADER WINAPI
+VFS_GetFileInformationW(Plugin* plugin, LPVFSFUNCDATA lpVFSData, LPWSTR lpszPath, HANDLE hHeap, DWORD dwFlags) {
+  return plugin->GetFileInformation(Path(lpszPath), hHeap);
+}
+
 __declspec(dllexport) BOOL WINAPI
 VFS_GetFileAttrW(Plugin* plugin, LPVFSFUNCDATA lpFuncData, LPTSTR lpszPath, LPDWORD lpdwAttr) {
   return plugin->GetFileAttr(Path(lpszPath), lpdwAttr);
 }
 
 __declspec(dllexport) BOOL WINAPI
+VFS_SetFileAttrW(Plugin* plugin, LPVFSFUNCDATA lpFuncData, LPTSTR lpszPath, DWORD dwAttr, BOOL fForDelete) {
+  return false;
+}
+
+__declspec(dllexport) BOOL WINAPI VFS_GetFileSizeW(
+    Plugin* plugin,
+    LPVFSFUNCDATA lpFuncData,
+    LPTSTR lpszPath,
+    PluginFile* file,
+    unsigned __int64* piFileSize) {
+  if (file != nullptr) {
+    *piFileSize = file->file_ ? file->file_->unpack_size() : 0;
+    return true;
+  }
+  return plugin->GetFileSize(Path(lpszPath), file, piFileSize);
+}
+
+__declspec(dllexport) BOOL WINAPI VFS_SetFileTimeW(
+    Plugin* plugin,
+    LPVFSFUNCDATA lpFuncData,
+    LPTSTR lpszPath,
+    LPFILETIME lpCreateTime,
+    LPFILETIME lpAccessTime,
+    LPFILETIME lpWriteTime) {
+  return false;
+}
+
+__declspec(dllexport) BOOL WINAPI
 VFS_GetFileCommentW(HANDLE hVFSData, LPVFSFUNCDATA lpFuncData, LPTSTR lpszPath, LPTSTR lpszComment, int cchCommentMax) {
   ::memset(lpszComment, 0, cchCommentMax * sizeof(TCHAR));
   return true;
+}
+
+__declspec(dllexport) BOOL WINAPI
+VFS_SetFileCommentW(Plugin* plugin, LPVFSFUNCDATA lpFuncData, LPTSTR lpszPath, LPTSTR lpszComment) {
+  return false;
 }
 
 __declspec(dllexport) BOOL WINAPI VFS_GetFileDescriptionW(
@@ -122,39 +211,13 @@ __declspec(dllexport) BOOL WINAPI VFS_GetFileIconW(
   return false;
 }
 
-__declspec(dllexport) BOOL WINAPI VFS_GetFileSizeW(
-    Plugin* plugin,
-    LPVFSFUNCDATA lpFuncData,
-    LPTSTR lpszPath,
-    PluginFile* file,
-    unsigned __int64* piFileSize) {
-  if (file != nullptr) {
-    *piFileSize = file->file_ ? file->file_->unpack_size() : 0;
-    return true;
-  }
-  return plugin->GetFileSize(Path(lpszPath), file, piFileSize);
-}
+// ============================================================================
+// Directory Operations
+// ============================================================================
 
 __declspec(dllexport) BOOL WINAPI
-VFS_SetFileAttrW(Plugin* plugin, LPVFSFUNCDATA lpFuncData, LPTSTR lpszPath, DWORD dwAttr, BOOL fForDelete) {
+VFS_CreateDirectoryW(Plugin* plugin, LPVFSFUNCDATA lpFuncData, LPTSTR lpszPath, DWORD dwFlags) {
   return false;
-}
-__declspec(dllexport) BOOL WINAPI
-VFS_SetFileCommentW(Plugin* plugin, LPVFSFUNCDATA lpFuncData, LPTSTR lpszPath, LPTSTR lpszComment) {
-  return false;
-}
-__declspec(dllexport) BOOL WINAPI VFS_SetFileTimeW(
-    Plugin* plugin,
-    LPVFSFUNCDATA lpFuncData,
-    LPTSTR lpszPath,
-    LPFILETIME lpCreateTime,
-    LPFILETIME lpAccessTime,
-    LPFILETIME lpWriteTime) {
-  return false;
-}
-
-__declspec(dllexport) void WINAPI VFS_CloseFile(Plugin* plugin, LPVFSFUNCDATA lpVFSData, PluginFile* file) {
-  plugin->CloseFile(file);
 }
 
 __declspec(dllexport) BOOL WINAPI
@@ -162,23 +225,9 @@ VFS_MoveFileW(Plugin* hVFSData, LPVFSFUNCDATA lpFuncData, LPTSTR lpszOldPath, LP
   return false;
 }
 
-__declspec(dllexport) int VFS_ContextVerbW(Plugin* plugin, LPVFSFUNCDATA lpVFSData, LPVFSCONTEXTVERBDATAW lpVerbData) {
-  return plugin->ContextVerb(lpVerbData);
-}
-
-__declspec(dllexport) UINT WINAPI
-VFS_BatchOperationW(Plugin* plugin, LPVFSFUNCDATA lpVFSData, LPWSTR lpszPath, LPVFSBATCHDATAW lpBatchData) {
-  return plugin->BatchOperation(Path(lpszPath), lpBatchData);
-}
-
-__declspec(dllexport) bool
-VFS_PropGetW(Plugin* plugin, vfsProperty propId, LPVOID lpPropData, LPVOID lpData1, LPVOID lpData2, LPVOID lpData3) {
-  return plugin->PropGet(propId, lpPropData, lpData1, lpData2, lpData3);
-}
-
-__declspec(dllexport) long VFS_GetLastError(Plugin* data) {
-  return data->GetError();
-}
+// ============================================================================
+// File System Properties and Actions
+// ============================================================================
 
 __declspec(dllexport) bool VFS_GetFreeDiskSpaceW(
     Plugin* plugin,
@@ -199,44 +248,22 @@ __declspec(dllexport) bool VFS_GetFreeDiskSpaceW(
   return true;
 }
 
-__declspec(dllexport) PluginFindData* WINAPI VFS_FindFirstFileW(
-    Plugin* plugin,
-    LPVFSFUNCDATA lpVFSData,
-    LPWSTR lpszPath,
-    LPWIN32_FIND_DATA lpwfdData,
-    HANDLE hAbortEvent) {
-  return plugin->FindFirst(Path(lpszPath), lpwfdData, hAbortEvent);
+__declspec(dllexport) int VFS_ContextVerbW(Plugin* plugin, LPVFSFUNCDATA lpVFSData, LPVFSCONTEXTVERBDATAW lpVerbData) {
+  return plugin->ContextVerb(lpVerbData);
 }
 
-__declspec(dllexport) BOOL WINAPI
-VFS_FindNextFileW(Plugin* plugin, LPVFSFUNCDATA lpVFSData, PluginFindData* find_data, LPWIN32_FIND_DATA lpwfdData) {
-  return plugin->FindNext(find_data, lpwfdData);
+__declspec(dllexport) UINT WINAPI
+VFS_BatchOperationW(Plugin* plugin, LPVFSFUNCDATA lpVFSData, LPWSTR lpszPath, LPVFSBATCHDATAW lpBatchData) {
+  return plugin->BatchOperation(Path(lpszPath), lpBatchData);
 }
 
-__declspec(dllexport) void WINAPI VFS_FindClose(Plugin* plugin, PluginFindData* find_data) {
-  plugin->FindClose(find_data);
+__declspec(dllexport) bool
+VFS_PropGetW(Plugin* plugin, vfsProperty propId, LPVOID lpPropData, LPVOID lpData1, LPVOID lpData2, LPVOID lpData3) {
+  return plugin->PropGet(propId, lpPropData, lpData1, lpData2, lpData3);
 }
 
-__declspec(dllexport) BOOL WINAPI
-VFS_ExtractFilesW(Plugin* plugin, LPVFSFUNCDATA lpFuncData, LPVFSEXTRACTFILESDATAW lpExtractData) {
-  return plugin->ExtractEntries(
-      lpFuncData, dopus::wstring_view_span(lpExtractData->lpszFiles), Path(lpExtractData->lpszDestPath));
-}
-
-__declspec(dllexport) bool VFS_USBSafe(LPOPUSUSBSAFEDATA pUSBSafeData) {
-  return true;
-}
-
-__declspec(dllexport) bool VFS_Init(LPVFSINITDATA pInitData) {
-  Plugin::InitCustomColumns();
-  return true;
-}
-
-__declspec(dllexport) void VFS_Uninit() {}
-
-__declspec(dllexport) LPVFSFILEDATAHEADER WINAPI
-VFS_GetFileInformationW(Plugin* plugin, LPVFSFUNCDATA lpVFSData, LPWSTR lpszPath, HANDLE hHeap, DWORD dwFlags) {
-  return plugin->GetFileInformation(Path(lpszPath), hHeap);
+__declspec(dllexport) long VFS_GetLastError(Plugin* data) {
+  return data->GetError();
 }
 
 }  // extern "C"
