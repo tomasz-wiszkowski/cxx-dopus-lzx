@@ -2,7 +2,7 @@
 
 #include <gtest/gtest.h>
 
-TEST(PathTest, SanitizeForeignPath) {
+TEST(PathTest, SanitizeForeignPath_ReservedCharacters) {
   // No backslashes in names.
   EXPECT_EQ(Path::from_foreign_path(L"bar\\baz").wstring(), L"bar\uFF3Cbaz");
 
@@ -21,6 +21,28 @@ TEST(PathTest, SanitizeForeignPath) {
   // Already covered above but for completeness...
   EXPECT_EQ(Path::from_foreign_path(L"foo/bar").wstring(), L"foo\\bar");
 }
+
+TEST(PathTest, SanitizeForeignPath_ReservedNames) {
+  EXPECT_EQ(Path::from_foreign_path(L"CON").wstring(), L"CON_");
+  EXPECT_EQ(Path::from_foreign_path(L"con").wstring(), L"CON_");
+  EXPECT_EQ(Path::from_foreign_path(L"CoN").wstring(), L"CON_");
+
+  // No substitutions
+  EXPECT_EQ(Path::from_foreign_path(L"xCON").wstring(), L"xCON");
+  EXPECT_EQ(Path::from_foreign_path(L"CONx").wstring(), L"CONx");
+  EXPECT_EQ(Path::from_foreign_path(L"X.CON").wstring(), L"X.CON");
+
+  // Substitution test -- whole names should be replaced
+  EXPECT_EQ(Path::from_foreign_path(L"/foo/con/bar").wstring(), L"\\foo\\CON_\\bar");
+  EXPECT_EQ(Path::from_foreign_path(L"con/bar").wstring(), L"CON_\\bar");
+  EXPECT_EQ(Path::from_foreign_path(L"foo/con").wstring(), L"foo\\CON_");
+
+  // Substitution test -- names with extensions should be replaced
+  EXPECT_EQ(Path::from_foreign_path(L"/foo/con.txt/bar").wstring(), L"\\foo\\CON_.txt\\bar");
+  EXPECT_EQ(Path::from_foreign_path(L"con.tar.gz/bar").wstring(), L"CON_.tar.gz\\bar");
+  EXPECT_EQ(Path::from_foreign_path(L"foo/con.txt.zip").wstring(), L"foo\\CON_.txt.zip");
+}
+
 
 TEST(PathTest, ParentPath) {
   EXPECT_EQ(Path(L"C:\\foo\\bar.txt").parent_path().wstring(), L"C:\\foo");
