@@ -80,7 +80,7 @@ class CustomColumnManager {
       column_values.emplace_back(column->get_id(), value);
     }
 
-    data->iNumColumns = column_values.size();
+    data->iNumColumns = static_cast<int>(column_values.size());
     data->lpvfsColumnData = nullptr;
 
     if (column_values.empty())

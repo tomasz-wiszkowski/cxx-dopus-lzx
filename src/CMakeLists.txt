@@ -28,8 +28,10 @@ target_compile_definitions(${PLUGIN_NAME} PRIVATE DOPUS_PLUGIN_HELPER UNICODE)
 if(MSVC)
     target_compile_options(${PLUGIN_NAME} PRIVATE
         /W4      # Warning level
-        /wd4100  # Unreferenced formal parameter
-        /EHs-c-  # Disable C++ exceptions
+        /wd4100  # disable the unreferenced formal parameter
+        /wd4201  # disable the nameless struct/union
+        /wd4530  # disable the C++ exception handler used, but unwind semantics are not enabled
+        /EHs-c-  # disable C++ exceptions
     )
 
     # Conformance mode
@@ -96,6 +98,16 @@ add_executable(${PLUGIN_NAME}_test
 )
 target_link_libraries(${PLUGIN_NAME}_test PUBLIC gtest gtest_main PRIVATE Pathcch Shlwapi Shell32)
 target_include_directories(${PLUGIN_NAME}_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+
+if(MSVC)
+    target_compile_options(${PLUGIN_NAME}_test PRIVATE
+        /W4
+        /wd4100  # disable the unreferenced formal parameter
+        /wd4201  # disable the nameless struct/union
+        /wd4530  # disable the C++ exception handler used, but unwind semantics are not enabled
+        /EHs-c-  # disable C++ exceptions
+    )
+endif()
 
 include(GoogleTest)
 gtest_discover_tests(${PLUGIN_NAME}_test)

@@ -5,12 +5,13 @@
 #include <algorithm>
 #include <array>
 #include <cwctype>
-#include <functional>
 #include <fstream>
+#include <functional>
 #include <vector>
 
-#include "text_utils.hh"
 #include "custom_columns.hh"
+#include "text_utils.hh"
+
 
 extern "C" {
 #include "plugin support.h"
@@ -25,13 +26,14 @@ namespace {
 
 /// @brief  Creates a FILETIME structure representing the given UTC time components.
 std::optional<FILETIME> MakeFileTime(WORD year, WORD month, WORD day, WORD hour, WORD minute, WORD second) {
-  SYSTEMTIME local{.wYear = year,
-                   .wMonth = month,
-                   .wDay = day,
-                   .wHour = hour,
-                   .wMinute = minute,
-                   .wSecond = second,
-                   .wMilliseconds = 0};
+  SYSTEMTIME local{
+      .wYear = year,
+      .wMonth = month,
+      .wDay = day,
+      .wHour = hour,
+      .wMinute = minute,
+      .wSecond = second,
+      .wMilliseconds = 0};
 
   SYSTEMTIME utc{};
   if (!TzSpecificLocalTimeToSystemTime(nullptr, &local, &utc))
@@ -48,27 +50,26 @@ std::optional<FILETIME> MakeFileTime(WORD year, WORD month, WORD day, WORD hour,
 void Plugin::InitCustomColumns() {
   mColumnManager = std::make_unique<CustomColumnManager<DirEnt>>();
 
-  mColumnManager->add_custom_column(L"Packed Size", L"lzx_packed_size", VFSCCF_SIZE, [](const Plugin::DirEnt& entry, wchar_t* buffer, size_t buffer_size) -> size_t {
-    if (!entry.is_file_ || !entry.entry_ || !entry.entry_->pack_size())
-      return 0;
-    size_t size = *entry.entry_->pack_size();
-    return swprintf(buffer, buffer_size, L"%zu", size);
-  });
+  mColumnManager->add_custom_column(
+      L"Packed Size", L"lzx_packed_size", VFSCCF_SIZE,
+      [](const Plugin::DirEnt& entry, wchar_t* buffer, size_t buffer_size) -> size_t {
+        if (!entry.is_file_ || !entry.entry_ || !entry.entry_->pack_size())
+          return 0;
+        size_t size = *entry.entry_->pack_size();
+        return swprintf(buffer, buffer_size, L"%zu", size);
+      });
 
-  mColumnManager->add_custom_column(L"Protection Bits", L"lzx_protection_bits", VFSCCF_CENTERJUSTIFY, [](const Plugin::DirEnt& entry, wchar_t* buffer, size_t buffer_size) -> size_t {
-    if (!entry.is_file_ || !entry.entry_)
-      return 0;
-    auto bits = entry.entry_->attributes();
-    return swprintf(buffer, buffer_size, L"%c%c%c%c%c%c%c%c",
-      bits.hidden ? 'h' : '-',
-      bits.script ? 's' : '-',
-      bits.pure ? 'p' : '-',
-      bits.archived ? 'a' : '-',
-      bits.readable ? 'r' : '-',
-      bits.writable ? 'w' : '-',
-      bits.executable ? 'e' : '-',
-      bits.deletable ? 'd' : '-');
-  });
+  mColumnManager->add_custom_column(
+      L"Protection Bits", L"lzx_protection_bits", VFSCCF_CENTERJUSTIFY,
+      [](const Plugin::DirEnt& entry, wchar_t* buffer, size_t buffer_size) -> size_t {
+        if (!entry.is_file_ || !entry.entry_)
+          return 0;
+        auto bits = entry.entry_->attributes();
+        return swprintf(
+            buffer, buffer_size, L"%c%c%c%c%c%c%c%c", bits.hidden ? 'h' : '-', bits.script ? 's' : '-',
+            bits.pure ? 'p' : '-', bits.archived ? 'a' : '-', bits.readable ? 'r' : '-', bits.writable ? 'w' : '-',
+            bits.executable ? 'e' : '-', bits.deletable ? 'd' : '-');
+      });
 }
 
 // --- Directory Structure & Navigation ---
@@ -143,7 +144,8 @@ LPVFSFILEDATAHEADER Plugin::GetVFSforEntry(std::wstring_view name, const DirEnt&
 
   if (item.entry_ && !item.entry_->comment().empty()) {
     auto wcomment = latin1_to_wstring(item.entry_->comment());
-    details->lpszComment = static_cast<LPWSTR>(HeapAlloc(heap, 0, (wcomment.size() + 1) * sizeof(wchar_t)));
+    details->lpszComment =
+        static_cast<LPWSTR>(HeapAlloc(heap, 0, static_cast<SIZE_T>((wcomment.size() + 1) * sizeof(wchar_t))));
     memcpy(details->lpszComment, wcomment.c_str(), (wcomment.size() + 1) * sizeof(wchar_t));
   }
 
@@ -155,7 +157,7 @@ void Plugin::GetWfdForEntry(std::wstring_view name, const DirEnt& item, LPWIN32_
 
   data->nFileSizeHigh = 0;
   if (item.is_file_) {
-    data->nFileSizeLow = item.entry_->unpack_size();
+    data->nFileSizeLow = static_cast<DWORD>(item.entry_->unpack_size());
     data->dwFileAttributes = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_COMPRESSED;
   } else {
     data->dwFileAttributes = FILE_ATTRIBUTE_DIRECTORY;
@@ -177,8 +179,10 @@ void Plugin::GetWfdForEntry(std::wstring_view name, const DirEnt& item, LPWIN32_
       data->dwFileAttributes |= FILE_ATTRIBUTE_SYSTEM;
 
     auto datestamp = item.entry_->datestamp();
-    data->ftLastAccessTime = MakeFileTime(datestamp.year(), datestamp.month() + 1, datestamp.day(), datestamp.hour(),
-                                          datestamp.minute(), datestamp.second())
+    data->ftLastAccessTime = MakeFileTime(
+                                 static_cast<WORD>(datestamp.year()), static_cast<WORD>(datestamp.month() + 1),
+                                 static_cast<WORD>(datestamp.day()), static_cast<WORD>(datestamp.hour()),
+                                 static_cast<WORD>(datestamp.minute()), static_cast<WORD>(datestamp.second()))
                                  .value_or(FILETIME{});
     data->ftCreationTime = data->ftLastAccessTime;
     data->ftLastWriteTime = data->ftLastAccessTime;
@@ -345,7 +349,7 @@ bool Plugin::ReadFile(PluginFile* file, std::span<uint8_t> buffer, LPDWORD read_
     return false;
   }
 
-  *read_size = min(segment_size - read_offset, buffer.size());
+  *read_size = static_cast<DWORD>(min(segment_size - read_offset, buffer.size()));
   ::memcpy(buffer.data(), &data[read_offset], *read_size);
   file->offset_ += *read_size;
 
@@ -474,8 +478,8 @@ bool Plugin::ExtractFile(LPVOID func_data, const DirEnt& entry, Path target_path
   if (!entry.is_file_)
     return false;
 
-  std::ofstream target(target_path.wstring().c_str(),
-                       std::ios_base::trunc | std::ios_base::out | std::ios_base::binary);
+  std::ofstream target(
+      target_path.wstring().c_str(), std::ios_base::trunc | std::ios_base::out | std::ios_base::binary);
   for (auto segment : entry.entry_->segments()) {
     if (target.bad())
       break;
@@ -547,8 +551,8 @@ int Plugin::ContextVerb(LPVFSCONTEXTVERBDATAW lpVerbData) {
 uint32_t Plugin::BatchOperation(Path path, LPVFSBATCHDATAW lpBatchData) {
   switch (lpBatchData->uiOperation) {
     case VFSBATCHOP_EXTRACT:
-      if (ExtractEntries(lpBatchData->lpFuncData, dopus::wstring_view_span(lpBatchData->pszFiles),
-                         Path(lpBatchData->pszDestPath)))
+      if (ExtractEntries(
+              lpBatchData->lpFuncData, dopus::wstring_view_span(lpBatchData->pszFiles), Path(lpBatchData->pszDestPath)))
         return VFSBATCHRES_HANDLED;
       break;
 

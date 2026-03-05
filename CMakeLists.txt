@@ -14,6 +14,11 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 
+# Remove default exception handling flags for MSVC
+if(MSVC)
+    string(REPLACE "/EHsc" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+endif()
+
 # Platform detection
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
 set(PLATFORM_X64 TRUE)
