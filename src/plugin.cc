@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <array>
 #include <cwctype>
-#include <fstream>
 #include <functional>
 #include <vector>
 
@@ -478,12 +477,12 @@ bool Plugin::ExtractFile(LPVOID func_data, const DirEnt& entry, Path target_path
   if (!entry.is_file_)
     return false;
 
-  std::ofstream target(
-      target_path.wstring().c_str(), std::ios_base::trunc | std::ios_base::out | std::ios_base::binary);
-  for (auto segment : entry.entry_->segments()) {
-    if (target.bad())
-      break;
+  HANDLE hFile = CreateFileW(
+      target_path.wstring().c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (hFile == INVALID_HANDLE_VALUE)
+    return false;
 
+  for (auto segment : entry.entry_->segments()) {
     auto data = segment.data();
 
     // Decompress failure.
@@ -491,9 +490,13 @@ bool Plugin::ExtractFile(LPVOID func_data, const DirEnt& entry, Path target_path
       break;
 
     // Write failure.
-    target.write(reinterpret_cast<const char*>(data.data()), data.size());
+    DWORD bytes_written = 0;
+    if (!WriteFile(hFile, data.data(), static_cast<DWORD>(data.size()), &bytes_written, nullptr) ||
+        bytes_written != data.size()) {
+      break;
+    }
   }
-  target.close();
+  CloseHandle(hFile);
   DOpus.AddFunctionFileChange(func_data, /* fIsDest= */ false, OPUSFILECHANGE_CREATE, target_path.wstring().c_str());
 
   return true;
